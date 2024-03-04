@@ -1,5 +1,6 @@
 # PromoPredictor: IA para Estratégias de Promoção Inteligente
 
+
 ## Descrição
 O PromoPredictor é uma solução inovadora desenvolvida para otimizar as estratégias de promoção em supermercados. Utilizando algoritmos avançados de Inteligência Artificial (IA), o PromoPredictor analisa dados históricos de vendas, promoções e lucros para prever quais produtos terão maior sucesso em promoções futuras, maximizando assim os resultados comerciais.
 
