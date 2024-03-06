@@ -1,0 +1,16 @@
+|COLUMN_NAME  |COLUMN_TYPE     |IS_NULLABLE|COLUMN_KEY|COLUMN_DEFAULT|EXTRA|
+|-------------|----------------|-----------|----------|--------------|-----|
+|Codigo       |int(10) unsigned|NO         |          |0             |     |
+|Data         |date            |YES        |          |              |     |
+|Hora         |time            |YES        |          |              |     |
+|CodigoCliente|int(10) unsigned|YES        |          |              |     |
+|Status       |varchar(1)      |YES        |          |              |     |
+|TotalPedido  |double          |YES        |          |              |     |
+|Endereco     |varchar(60)     |YES        |          |              |     |
+|Numero       |varchar(6)      |YES        |          |              |     |
+|Bairro       |varchar(35)     |YES        |          |              |     |
+|Cidade       |varchar(150)    |YES        |          |              |     |
+|UF           |varchar(50)     |YES        |          |              |     |
+|CEP          |varchar(10)     |YES        |          |              |     |
+|TotalCusto   |double          |YES        |          |              |     |
+|Rentabilidade|double          |YES        |          |              |     |
