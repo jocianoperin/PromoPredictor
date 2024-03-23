@@ -1,70 +1,56 @@
-import pandas as pd
+import sys
+from pathlib import Path
+import mysql.connector
 
-def load_data(file_path, usecols=None, sep=';'):
+# Adiciona o diretório 'src' ao path para importar os módulos de configuração
+project_root = Path(__file__).resolve().parents[2]
+sys.path.append(str(project_root / 'src'))
+
+from logging_config import get_logger
+from db.db_config import get_db_connection
+
+# Criação do logger
+logger = get_logger(__name__)
+
+def identify_promotions(conn):
     """
-    Load and optionally filter CSV data from a given file path.
+    Identifica promoções com base em critérios específicos diretamente no banco de dados.
     """
-    # Determine if 'Data' is in usecols for parsing dates
-    parse_dates = ['Data'] if 'Data' in usecols else None
-    return pd.read_csv(file_path, usecols=usecols, sep=sep, parse_dates=parse_dates)
-
-def identify_promotions(vendas_df, vendas_produtos_df):
-    """
-    Identify products sold in promotions based on stable cost and reduced sale price.
-    """
-    # Merge the sales and product sales data on sale code
-    data_merged = pd.merge(vendas_produtos_df, vendas_df, left_on="CodigoVenda", right_on="Codigo")
-
-    # Sorting by product code and date to ensure chronological order for each product
-    data_merged.sort_values(by=['CodigoProduto', 'Data'], inplace=True)
-
-    # Initialize 'EmPromocao' column to False
-    data_merged['EmPromocao'] = False
-    
-    # Loop through each product to identify promotions
-    for produto in data_merged['CodigoProduto'].unique():
-        produto_df = data_merged[data_merged['CodigoProduto'] == produto]
-        for index, row in produto_df.iterrows():
-            # Check for previous entries of the product
-            prev_entries = produto_df[produto_df['Data'] < row['Data']]
-            if not prev_entries.empty:
-                avg_cost = prev_entries['ValorCusto'].mean()
-                avg_sale_price = prev_entries['ValorUnitario'].mean()
-
-                # Mark as promotion if sale price is reduced while cost remains stable
-                if row['ValorUnitario'] < avg_sale_price * 0.95 and abs(row['ValorCusto'] - avg_cost) < avg_cost * 0.05:
-                    data_merged.at[index, 'EmPromocao'] = True
-
-    promotions = data_merged[data_merged['EmPromocao']]
+    cursor = conn.cursor(dictionary=True)
+    promotions = []
+    try:
+        query = """
+        SELECT vp.CodigoProduto, vp.ValorUnitario, vp.ValorTabela, v.Data
+        FROM vendasprodutos vp
+        JOIN vendas v ON vp.CodigoVenda = v.Codigo
+        WHERE vp.ValorUnitario < vp.ValorTabela AND vp.PrecoemPromocao IS NOT NULL;
+        """
+        cursor.execute(query)
+        for row in cursor:
+            promotions.append(row)
+        logger.info(f"{len(promotions)} promoções identificadas.")
+    except mysql.connector.Error as e:
+        logger.error(f"Erro ao consultar o banco de dados: {e}")
+    finally:
+        cursor.close()
     return promotions
 
-def save_to_csv(df, file_path):
-    """
-    Save the DataFrame to a CSV file.
-    """
-    df.to_csv(file_path, index=False)
-
 def main():
-    # Adjusted paths for cleaned data
-    vendas_clean_path = '/home/jociano/Projects/PromoPredictor/datasetclean/cleaned_vendas.csv'
-    vendas_produtos_clean_path = '/home/jociano/Projects/PromoPredictor/datasetclean/cleaned_vendasprodutos.csv'
-    promotions_output_path = '/home/jociano/Projects/PromoPredictor/datasetclean/promotions_identified.csv'
+    conn = None
+    try:
+        conn = get_db_connection()
+        logger.info("Conexão com o banco de dados estabelecida.")
+        
+        promotions = identify_promotions(conn)
+        # Aqui você pode salvar as promoções identificadas onde precisar,
+        # como em uma nova tabela no banco de dados ou em um arquivo, etc.
 
-    # Define columns to load, ensuring 'ValorCusto' is included for vendas_produtos_df
-    vendas_columns = ['Codigo', 'Data', 'Hora', 'CodigoCliente', 'TotalPedido']
-    vendas_produtos_columns = ['CodigoVenda', 'CodigoProduto', 'ValorUnitario', 'ValorTabela', 'PrecoemPromocao', 'ValorCusto']
-    
-    # Load the cleaned data
-    vendas_df = load_data(vendas_clean_path, usecols=vendas_columns)
-    vendas_produtos_df = load_data(vendas_produtos_clean_path, usecols=vendas_produtos_columns)
-    
-    # Identify promotions
-    promotions_df = identify_promotions(vendas_df, vendas_produtos_df)
-    
-    # Save the identified promotions to a CSV file
-    save_to_csv(promotions_df, promotions_output_path)
-    
-    print(f"Promotions identified and saved to {promotions_output_path}")
+    except mysql.connector.Error as e:
+        logger.error(f"Erro de conexão com o banco de dados: {e}")
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+            logger.info("Conexão com o banco de dados fechada.")
 
 if __name__ == "__main__":
     main()

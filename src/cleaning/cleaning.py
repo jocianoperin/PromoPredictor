@@ -1,48 +1,52 @@
 import sys
 from pathlib import Path
-import mysql.connector
-from logging_config import get_logger
 
-# Cria um logger para este módulo
-logger = get_logger(__name__)
+# Caminho absoluto para a raiz do seu projeto
+project_root = Path(__file__).resolve().parents[1]
 
-# Adiciona o diretório db ao path para poder importar db_config
-project_root = Path(__file__).resolve().parents[2]
+# Adiciona os diretórios 'src' e 'db' ao sys.path
+sys.path.append(str(project_root / 'src'))
 sys.path.append(str(project_root / 'db'))
 
-import db_config
+from logging_config import get_logger
+from db.db_config import get_db_connection
 
-def clean_data():
-    """
-    Clean the sales data and products sold data directly in the MariaDB database.
-    """
+# Criação do logger
+logger = get_logger(__name__)
+
+
+def clean_data(conn):
+    cursor = conn.cursor()
     try:
-        # Obtém a conexão do banco de dados usando a função definida em db_config.py
-        conn = db_config.get_db_connection()
-        cursor = conn.cursor()
+        # Aqui vão os comandos SQL para limpeza dos dados.
+        cursor.execute("DELETE FROM vendas WHERE TotalPedido <= 0")
+        logger.info(f"Limpeza na tabela 'vendas': {cursor.rowcount} linhas removidas.")
 
-        # Exemplo de limpeza: remover vendas com valores negativos ou zero
-        cursor.execute("""
-            DELETE FROM vendasexport WHERE TotalPedido <= 0;
-        """)
-        cursor.execute("""
-            DELETE FROM vendasprodutosexport WHERE ValorTotal <= 0 OR Quantidade <= 0;
-        """)
-        
-        # Aplica as mudanças no banco de dados
+        cursor.execute("DELETE FROM vendasprodutos WHERE ValorTotal <= 0 OR Quantidade <= 0")
+        logger.info(f"Limpeza na tabela 'vendasprodutos': {cursor.rowcount} linhas removidas.")
+
         conn.commit()
-        print("Dados de vendas e produtos vendidos limpos com sucesso.")
-
-    except mysql.connector.Error as e:
-        print(f"Erro ao acessar o banco de dados MariaDB: {e}")
+    except Exception as e:
+        logger.error(f"Erro durante a limpeza dos dados: {e}")
+        conn.rollback()
     finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
-            print("Conexão ao banco de dados fechada.")
+        cursor.close()
 
 def main():
-    clean_data()
+    conn = None
+    try:
+        conn = get_db_connection()
+        logger.info("Conexão com o banco de dados estabelecida.")
+        
+        clean_data(conn)
+
+    except Exception as e:
+        logger.error("Erro na conexão com o banco de dados.")
+        logger.exception(e)
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Conexão com o banco de dados fechada.")
 
 if __name__ == "__main__":
     main()
