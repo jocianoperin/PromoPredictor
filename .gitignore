@@ -161,8 +161,12 @@ cython_debug/
 
 # Dataset too big
 dataset/
+datasetOLD/
 datasetclean/
 datasettest/
 
 #VSCode
 .vscode
+
+#Logs
+/logs/
