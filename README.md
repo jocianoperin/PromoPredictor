@@ -1,28 +1,56 @@
 # PromoPredictor: IA para Estratégias de Promoção Inteligente
+O PromoPredictor é um sistema desenvolvido para identificar promoções eficazes em produtos de supermercados com base em dados históricos de vendas. Utilizando algoritmos de análise de dados e conexão direta com o banco de dados MariaDB, o sistema analisa as vendas passadas, os preços e os custos dos produtos para prever quais produtos devem entrar em promoção para maximizar vendas e lucros. O sistema também realiza uma limpeza inicial nos dados para garantir a qualidade e a precisão das análises.
 
 
-## Descrição
-O PromoPredictor é uma solução inovadora desenvolvida para otimizar as estratégias de promoção em supermercados. Utilizando algoritmos avançados de Inteligência Artificial (IA), o PromoPredictor analisa dados históricos de vendas, promoções e lucros para prever quais produtos terão maior sucesso em promoções futuras, maximizando assim os resultados comerciais.
+## Componentes do Sistema
+O PromoPredictor é composto por vários scripts Python, organizados em uma estrutura de pacote para fácil manutenção e expansão:
+- db_config.py: Configura a conexão com o banco de dados MariaDB, contendo as credenciais de acesso e parâmetros de conexão.
+- logging_config.py: Define a configuração de logging do sistema, garantindo que todas as operações importantes sejam registradas em arquivos de log para monitoramento e debugging.
+- cleaning.py: Responsável pela limpeza inicial dos dados, este script remove entradas inválidas ou indesejadas, como vendas com valores negativos ou produtos vendidos com quantidades iguais a zero.
+- promotions.py: Analisa os dados de vendas e custos dos produtos para identificar possíveis promoções. O script verifica mudanças significativas nos preços de venda em relação aos preços tabelados, sem alterações correspondentes nos custos, indicando uma promoção.
 
-## Objetivo
-O objetivo do PromoPredictor é fornecer aos supermercados uma ferramenta capaz de sugerir promoções mais eficazes, baseadas em análise de dados e previsões precisas, integrando-se facilmente aos sistemas ERP existentes.
-
-## Como Funciona
-O algoritmo do PromoPredictor processa conjuntos de dados históricos dos supermercados participantes, incluindo informações sobre vendas, preços, lucros e promoções anteriores. Utilizando técnicas de Machine Learning, o sistema identifica padrões e tendências, fornecendo recomendações de produtos para promoção em períodos específicos.
 
 ## Funcionalidades
-- Análise de dados históricos de vendas e promoções
-- Predição de produtos para promoção com base em eficácia esperada
-- Integração com sistemas ERP para implementação de promoções sugeridas
-- Relatórios e insights sobre o desempenho de promoções
+Limpeza de Dados
+O cleaning.py é executado para preparar os dados para análise. Este script:
+
+Remove vendas com valor total menor ou igual a zero.
+Exclui registros de produtos vendidos com quantidades ou valores totais menores ou iguais a zero.
+Identificação de Promoções
+O promotions.py processa os dados limpos para identificar promoções. Este script:
+
+Consulta o banco de dados para encontrar produtos com preços de venda abaixo dos preços tabelados, indicando potenciais promoções.
+Salva os detalhes das promoções identificadas em uma nova tabela no banco de dados para análises futuras e tomadas de decisão.
+
+
+## Log de Operações
+Todas as operações significativas e quaisquer erros são registrados em arquivos de log, facilitando o monitoramento do sistema e a resolução de problemas. A configuração de logging é definida em logging_config.py, que organiza os logs em arquivos rotativos para gerenciamento eficiente do espaço de armazenamento.
+
 
 ## Tecnologias Utilizadas
-- Linguagens de programação: [Inserir linguagens]
+- Linguagens de programação: Python (futuramente MoJo)
 - Bibliotecas de Machine Learning: [Inserir bibliotecas]
-- Banco de dados: [Inserir tecnologia de banco de dados]
+- Banco de dados: MariaDB
 
-## Como Instalar
-Instruções de instalação e configuração do PromoPredictor.
+
+## Instalação e Execução
+Descreva os passos de instalação do ambiente, como criar o ambiente virtual com conda ou pip, instalar dependências e como estruturar o banco de dados MariaDB antes de executar os scripts.
+
+Para executar o sistema:
+
+Certifique-se de que o banco de dados MariaDB esteja configurado e acessível.
+Execute ```bash
+python -m promopredictor.src.cleaning.cleaning
+
+para iniciar a limpeza dos dados.
+
+Execute ```bash
+python -m promopredictor.src.promotions.promotions
+
+para identificar promoções.
+
+
+
 
 ```bash
 # Exemplo de código de instalação
