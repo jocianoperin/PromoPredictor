@@ -10,6 +10,7 @@ def identify_promotions():
     return []
 
 def main():
+    logger.info("Iniciando cleaning.")
     conn = get_db_connection()
     try:
         promotions_db = PromotionsDB(conn)
