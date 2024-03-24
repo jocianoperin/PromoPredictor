@@ -39,15 +39,9 @@ Descreva os passos de instalação do ambiente, como criar o ambiente virtual co
 Para executar o sistema:
 
 Certifique-se de que o banco de dados MariaDB esteja configurado e acessível.
-Execute ```bash
-python -m promopredictor.src.cleaning.cleaning
+Execute `python -m promopredictor.src.cleaning.cleaning` para iniciar a limpeza dos dados.
 
-para iniciar a limpeza dos dados.
-
-Execute ```bash
-python -m promopredictor.src.promotions.promotions
-
-para identificar promoções.
+Execute `python -m promopredictor.src.promotions.promotions` para identificar promoções.
 
 
 
