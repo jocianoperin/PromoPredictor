@@ -41,6 +41,9 @@ Para executar o sistema:
 Certifique-se de que o banco de dados MariaDB esteja configurado e acessível.
 Execute `python -m promopredictor.src.cleaning.cleaning` para iniciar a limpeza dos dados.
 
+```bash
+python -m promopredictor.src.cleaning.cleaning
+
 Execute `python -m promopredictor.src.promotions.promotions` para identificar promoções.
 
 
