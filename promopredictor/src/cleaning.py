@@ -5,6 +5,7 @@ from ..logging_config import get_logger
 logger = get_logger(__name__)
 
 def main():
+    logger.info("Iniciando cleaning.")
     conn = get_db_connection()
     try:
         cleaner = DatabaseCleaner(conn)
