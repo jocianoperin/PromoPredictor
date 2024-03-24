@@ -45,7 +45,7 @@ python -m promopredictor.src.cleaning.cleaning
 para iniciar a limpeza dos dados.
 
 Execute ```bash
-# python -m promopredictor.src.promotions.promotions
+python -m promopredictor.src.promotions.promotions
 
 para identificar promoções.
 
