@@ -29,7 +29,7 @@ Todas as operações significativas e quaisquer erros são registrados em arquiv
 
 ## Tecnologias Utilizadas
 - Linguagens de programação: Python (futuramente MoJo)
-- Bibliotecas de Machine Learning: [Inserir bibliotecas]
+- Bibliotecas de Machine Learning: Ainda não implementado
 - Banco de dados: MariaDB
 
 
@@ -54,8 +54,3 @@ python -m promopredictor.src.promotions.promotions
 ```
 
 para identificar promoções.
-
-
-
-```bash
-# Exemplo de código de instalação
