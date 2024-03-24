@@ -40,6 +40,60 @@ class PromotionsDB:
             logger.error("Erro ao inserir/atualizar promoção: %s", e)
             self.conn.rollback()
 
+    def identify_and_insert_promotions(self):
+        """
+        Identifica promoções com base em critérios específicos e insere na tabela promotions_identified.
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                # Recupera os dados necessários para análise
+                cursor.execute("""
+                SELECT 
+                    vp.CodigoProduto, 
+                    v.Data, 
+                    vp.ValorUnitario, 
+                    vp.ValorCusto
+                FROM vendasprodutosexport vp
+                JOIN vendasexport v ON vp.CodigoVenda = v.Codigo;
+                """)
+                products_data = cursor.fetchall()
+                
+                # Prepara um dicionário para armazenar os dados por produto
+                product_history = {}
+                for row in products_data:
+                    if row['CodigoProduto'] not in product_history:
+                        product_history[row['CodigoProduto']] = []
+                    product_history[row['CodigoProduto']].append(row)
+                
+                # Identifica promoções
+                promotions = []
+                for codigo, entries in product_history.items():
+                    entries.sort(key=lambda x: x['Data'])  # Ordena por data
+                    for i in range(1, len(entries)):
+                        prev_entries = entries[:i]
+                        avg_cost = sum(e['ValorCusto'] for e in prev_entries) / len(prev_entries)
+                        avg_sale_price = sum(e['ValorUnitario'] for e in prev_entries) / len(prev_entries)
+                        
+                        current_entry = entries[i]
+                        if (current_entry['ValorUnitario'] < avg_sale_price * 0.95 and 
+                            abs(current_entry['ValorCusto'] - avg_cost) < avg_cost * 0.05):
+                            promotions.append(current_entry)
+                
+                # Insere promoções identificadas
+                for promo in promotions:
+                    self.insert_promotion({
+                        'CodigoProduto': promo['CodigoProduto'], 
+                        'Data': promo['Data'], 
+                        'ValorUnitario': promo['ValorUnitario'], 
+                        'ValorTabela': avg_sale_price  # Assumindo que ValorTabela pode ser o avg_sale_price
+                    })
+                
+                logger.info("Promoções identificadas e inseridas com sucesso.")
+
+        except mysql.connector.Error as e:
+            logger.error("Erro ao identificar e inserir promoções: %s", e)
+            self.conn.rollback()
+
     def get_all_promotions(self):
         """
         Recupera todas as promoções armazenadas na tabela de promoções.

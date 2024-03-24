@@ -4,23 +4,17 @@ from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def identify_promotions():
-    # Sua lógica para identificar promoções
-    # Este código deve retornar uma lista de dicionários, cada um representando uma promoção identificada
-    return []
-
 def main():
-    logger.info("Iniciando cleaning.")
+    logger.info("Iniciando processo de identificação e inserção de promoções.")
     conn = get_db_connection()
     try:
         promotions_db = PromotionsDB(conn)
         promotions_db.create_promotions_table_if_not_exists()
 
-        promotions = identify_promotions()
-        for promo in promotions:
-            promotions_db.insert_promotion(promo)
+        # Agora, essa única chamada cuida tanto da identificação quanto da inserção de promoções.
+        promotions_db.identify_and_insert_promotions()
 
-        logger.info("%d promoções processadas.", len(promotions))
+        logger.info("Processamento de promoções concluído com sucesso.")
     except Exception as e:
         logger.error("Erro durante o processamento de promoções: %s", e)
     finally:
