@@ -21,8 +21,8 @@ def identify_promotions(conn):
     try:
         query = """
         SELECT vp.CodigoProduto, vp.ValorUnitario, vp.ValorTabela, v.Data
-        FROM vendasprodutos vp
-        JOIN vendas v ON vp.CodigoVenda = v.Codigo
+        FROM vendasprodutosexport vp
+        JOIN vendasexport v ON vp.CodigoVenda = v.Codigo
         WHERE vp.ValorUnitario < vp.ValorTabela AND vp.PrecoemPromocao IS NOT NULL;
         """
         cursor.execute(query)
