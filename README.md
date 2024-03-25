@@ -42,7 +42,7 @@ Certifique-se de que o banco de dados MariaDB esteja configurado e acessível.
 Execute 
 
 ```bash
-python -m promopredictor.src.cleaning.cleaning
+python -m promopredictor.src.cleaning
 ```
 
 para iniciar a limpeza dos dados.
@@ -50,7 +50,7 @@ para iniciar a limpeza dos dados.
 Execute
 
 ```bash
-python -m promopredictor.src.promotions.promotions
+python -m promopredictor.src.promotions
 ```
 
 para identificar promoções.
