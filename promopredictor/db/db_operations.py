@@ -205,8 +205,39 @@ class DatabaseOptimizer:
             with self.conn.cursor() as cursor:
                 # Lista de comandos SQL para criar índices
                 index_commands = [
+                    #VendasExport
+                    #1. Índices em Colunas de Filtragem e Junção
                     "CREATE INDEX idx_codigo ON vendasexport(Codigo);",
-                    # ... adicione todos os índices conforme recomendado anteriormente
+                    "CREATE INDEX idx_data ON vendasexport(Data);",
+                    "CREATE INDEX idx_codigocliente ON vendasexport(CodigoCliente);",
+
+                    #2. Índices Compostos
+                    "CREATE INDEX idx_data_codigocliente ON vendasexport(Data, CodigoCliente);",
+
+                    #3. Índices em Colunas de Ordenação
+                    "CREATE INDEX idx_totalpedido ON vendasexport(TotalPedido);",
+
+
+                    #VendasProdutosExport
+                    #1. Índice para Colunas de Junção
+                    "CREATE INDEX idx_vendasprodutosexport_codigovenda ON vendasprodutosexport(CodigoVenda);",
+                    "CREATE INDEX idx_vendasprodutosexport_codigoproduto ON vendasprodutosexport(CodigoProduto);",
+
+                    #2. Índice para Operações de Filtragem
+                    "CREATE INDEX idx_vendasprodutosexport_codigosecao ON vendasprodutosexport(CodigoSecao);",
+                    "CREATE INDEX idx_vendasprodutosexport_codigogrupo ON vendasprodutosexport(CodigoGrupo);",
+                    "CREATE INDEX idx_vendasprodutosexport_codigosubgrupo ON vendasprodutosexport(CodigoSubGrupo);",
+
+                    #3. Índice Composto para Consultas Específicas
+                    "CREATE INDEX idx_vendasprodutosexport_secaogrupo ON vendasprodutosexport(CodigoSecao, CodigoGrupo);",
+
+                    #4. Índices para Colunas de Ordenação e Agrupamento
+                    "CREATE INDEX idx_vendasprodutosexport_valorunitario ON vendasprodutosexport(ValorUnitario);",
+                    "CREATE INDEX idx_vendasprodutosexport_quantidade ON vendasprodutosexport(Quantidade);",
+
+                    #5. Avaliar Índices para Colunas de Desconto e Promoção
+                    "CREATE INDEX idx_vendasprodutosexport_desconto ON vendasprodutosexport(Desconto);",
+                    "CREATE INDEX idx_vendasprodutosexport_precoempromocao ON vendasprodutosexport(PrecoemPromocao);"
                 ]
                 for command in index_commands:
                     cursor.execute(command)
