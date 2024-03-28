@@ -125,6 +125,10 @@ class PromotionsDB:
                 """)
                 products_data = cursor.fetchall()
 
+            '''Este trecho de código agrupa dados de promoções por produto, prepara esses dados para processamento paralelo
+                e utiliza ThreadPoolExecutor para identificar promoções em paralelo, melhorando a eficiência para grandes volumes de dados.
+                Cada grupo de dados de produto é processado independentemente, e o total de promoções identificadas é acumulado, otimizando
+                o tempo de processamento através da execução concorrente.'''
             # Agrupar dados por CodigoProduto
             product_history = {}
             for row in products_data:
