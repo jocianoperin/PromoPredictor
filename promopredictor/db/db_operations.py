@@ -155,3 +155,24 @@ class DatabaseCleaner:
         except mysql.connector.Error as e:
             logger.error(f"Erro durante a limpeza da tabela 'vendas_produtos': {e}")
             self.conn.rollback()
+
+class DatabaseOptimizer:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def create_indexes(self):
+        # Método para criar índices nas tabelas vendasexport e vendasprodutosexport
+        try:
+            with self.conn.cursor() as cursor:
+                # Lista de comandos SQL para criar índices
+                index_commands = [
+                    "CREATE INDEX idx_codigo ON vendasexport(Codigo);",
+                    # ... adicione todos os índices conforme recomendado anteriormente
+                ]
+                for command in index_commands:
+                    cursor.execute(command)
+                self.conn.commit()
+                logger.info("Todos os índices foram criados.")
+        except mysql.connector.Error as e:
+            logger.error("Erro ao criar índices: %s", e)
+            self.conn.rollback()
