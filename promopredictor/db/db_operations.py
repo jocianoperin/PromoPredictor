@@ -67,17 +67,26 @@ class PromotionsDB:
                     product_history[row['CodigoProduto']] = []
                 product_history[row['CodigoProduto']].append(row)
 
+            logger.info(f"Iniciando o processamento de {len(product_history)} produtos diferentes.")
+
             total_promotions = 0
             for codigo, entries in product_history.items():
                 logger.info(f"Processando produto {codigo} com {len(entries)} entradas.")
+
                 promo_count = 0
                 for i in range(1, len(entries)):
+
+                    logger.debug(f"Calculando médias para o produto {codigo}, entrada {i} de {len(entries)}.")
+
                     avg_cost = sum(e['ValorCusto'] for e in entries[:i]) / i
                     avg_sale_price = sum(e['ValorUnitario'] for e in entries[:i]) / i
 
                     current_entry = entries[i]
                     if (current_entry['ValorUnitario'] < avg_sale_price * 0.95 and 
                         abs(current_entry['ValorCusto'] - avg_cost) < avg_cost * 0.05):
+
+                        logger.debug(f"Inserindo promoção para o produto {codigo}, data {current_entry['Data']}.")
+                        
                         self.insert_promotion({
                             'CodigoProduto': current_entry['CodigoProduto'], 
                             'Data': current_entry['Data'], 
