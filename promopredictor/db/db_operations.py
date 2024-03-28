@@ -1,4 +1,6 @@
 import mysql.connector
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from ..db.db_config import get_db_connection
 from ..logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -6,6 +8,16 @@ logger = get_logger(__name__)
 class PromotionsDB:
     def __init__(self, conn):
         self.conn = conn
+
+    def create_db_connection(self):
+        """Cria e retorna uma nova conexão ao banco de dados usando as configurações armazenadas."""
+        try:
+            # Cria uma nova conexão ao banco de dados
+            conn = get_db_connection()
+            return conn
+        except mysql.connector.Error as e:
+            logger.error(f"Erro ao conectar ao banco de dados: {e}")
+            raise
 
     def create_promotions_table_if_not_exists(self):
         try:
@@ -40,14 +52,67 @@ class PromotionsDB:
             logger.error("Erro ao inserir/atualizar promoção: %s", e)
             self.conn.rollback()
 
+    def process_product_chunk(self, product_chunk):
+        """Processa um subconjunto de produtos para identificar promoções, usando uma conexão individual ao banco de dados."""
+        # Inicializa o total de promoções identificadas para este chunk
+        total_promotions = 0
+
+        # Cria uma nova conexão ao banco de dados para a thread atual
+        with self.create_db_connection() as conn:
+            try:
+                cursor = conn.cursor()
+
+                for product_data in product_chunk:
+                    codigo = product_data['CodigoProduto']
+                    entries = product_data['Entries']
+                    promo_count = 0
+                    
+                    for i in range(1, len(entries)):
+                        avg_cost = sum(e['ValorCusto'] for e in entries[:i]) / i
+                        avg_sale_price = sum(e['ValorUnitario'] for e in entries[:i]) / i
+                        
+                        current_entry = entries[i]
+                        if (current_entry['ValorUnitario'] < avg_sale_price * 0.95 and
+                            abs(current_entry['ValorCusto'] - avg_cost) < avg_cost * 0.05):
+                            
+                            # Preparação dos dados para inserção
+                            data_to_insert = (
+                                current_entry['CodigoProduto'],
+                                current_entry['Data'],
+                                current_entry['ValorUnitario'],
+                                avg_sale_price
+                            )
+                            
+                            # Executa a inserção usando a conexão da thread atual
+                            cursor.execute("""
+                                INSERT INTO promotions_identified (CodigoProduto, Data, ValorUnitario, ValorTabela)
+                                VALUES (%s, %s, %s, %s)
+                                ON DUPLICATE KEY UPDATE ValorUnitario = VALUES(ValorUnitario), ValorTabela = VALUES(ValorTabela);
+                            """, data_to_insert)
+                            
+                            promo_count += 1
+                            
+                    if promo_count > 0:
+                        logger.info(f"Identificadas e inseridas {promo_count} promoções para o produto {codigo}.")
+                    
+                    total_promotions += promo_count
+                
+                # Confirma todas as operações realizadas na transação atual
+                conn.commit()
+
+            except mysql.connector.Error as e:
+                logger.error(f"Erro no processamento do chunk: {e}")
+                conn.rollback()  # Reverte a transação atual caso ocorra erro
+            finally:
+                if cursor is not None:
+                    cursor.close()  # Garante o fechamento do cursor
+
+        return total_promotions
+
     def identify_and_insert_promotions(self):
-        """
-        Identifica promoções com base em critérios específicos e insere na tabela promotions_identified.
-        """
         logger.info("Iniciando a identificação e inserção de promoções.")
         try:
             with self.conn.cursor(dictionary=True) as cursor:
-                logger.info("Recuperando dados necessários para análise do banco de dados.")
                 cursor.execute("""
                 SELECT 
                     vp.CodigoProduto, 
@@ -59,48 +124,22 @@ class PromotionsDB:
                 ORDER BY vp.CodigoProduto, v.Data;
                 """)
                 products_data = cursor.fetchall()
-                logger.info(f"Dados recuperados para {len(products_data)} registros.")
 
+            # Agrupar dados por CodigoProduto
             product_history = {}
             for row in products_data:
                 if row['CodigoProduto'] not in product_history:
                     product_history[row['CodigoProduto']] = []
                 product_history[row['CodigoProduto']].append(row)
 
-            logger.info(f"Iniciando o processamento de {len(product_history)} produtos diferentes.")
+            # Preparar dados para processamento paralelo
+            product_chunks = [dict(CodigoProduto=codigo, Entries=entries) for codigo, entries in product_history.items()]
 
             total_promotions = 0
-            for codigo, entries in product_history.items():
-                logger.info(f"Processando produto {codigo} com {len(entries)} entradas.")
-
-                promo_count = 0
-                for i in range(1, len(entries)):
-
-                    logger.debug(f"Calculando médias para o produto {codigo}, entrada {i} de {len(entries)}.")
-
-                    avg_cost = sum(e['ValorCusto'] for e in entries[:i]) / i
-                    avg_sale_price = sum(e['ValorUnitario'] for e in entries[:i]) / i
-
-                    current_entry = entries[i]
-                    if (current_entry['ValorUnitario'] < avg_sale_price * 0.95 and 
-                        abs(current_entry['ValorCusto'] - avg_cost) < avg_cost * 0.05):
-
-                        logger.debug(f"Inserindo promoção para o produto {codigo}, data {current_entry['Data']}.")
-                        
-                        self.insert_promotion({
-                            'CodigoProduto': current_entry['CodigoProduto'], 
-                            'Data': current_entry['Data'], 
-                            'ValorUnitario': current_entry['ValorUnitario'], 
-                            'ValorTabela': avg_sale_price
-                        })
-                        promo_count += 1
-                        total_promotions += 1
-                        logger.info(f"Promoção identificada e inserida para o produto {codigo} na data {current_entry['Data']}.")
-                
-                if promo_count > 0:
-                    logger.info(f"Identificadas e inseridas {promo_count} promoções para o produto {codigo}.")
-                else:
-                    logger.info(f"Nenhuma promoção identificada para o produto {codigo}.")
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(self.process_product_chunk, [chunk]) for chunk in product_chunks]
+                for future in as_completed(futures):
+                    total_promotions += future.result()
 
             logger.info(f"Processamento concluído. Total de promoções identificadas e inseridas: {total_promotions}.")
 

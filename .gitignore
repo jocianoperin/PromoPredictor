@@ -169,4 +169,4 @@ datasettest/
 .vscode
 
 #Logs
-/logs/
+/promopredictor/logs/*
