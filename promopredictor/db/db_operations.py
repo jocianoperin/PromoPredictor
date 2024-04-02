@@ -1,7 +1,7 @@
 import mysql.connector
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from ..db.db_config import get_db_connection
-from ..logging_config import get_logger
+from .db_config import get_db_connection
+from ..utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -202,17 +202,23 @@ class PromotionsDB:
         try:
             with self.conn.cursor() as cursor:
                 for result in results:
+                    logger.info(f"Inserindo/atualizando resultado: Produto {result['CodigoProduto']}, Data {result['DataPromocao']}, Quantidade Vendida {result['QuantidadeVendida']}, Valor Total Vendido {result['ValorTotalVendido']}")
+                
                     cursor.execute(insert_query, 
                         (result['CodigoProduto'], result['DataPromocao'], 
                          result['QuantidadeVendida'], result['ValorTotalVendido']))
                 self.conn.commit()
-                logger.info("Resultados da análise de promoções inseridos com sucesso.")
+
+                logger.info("Todos os resultados de análise de sucesso das promoções foram inseridos/atualizados com sucesso.")
+
         except mysql.connector.Error as e:
             self.conn.rollback()
             logger.error(f"Erro ao inserir resultados da análise de sucesso das promoções: {e}")
     
     def analyze_promotion_success(self):
         self.create_promotion_success_analysis_table()
+        logger.info("Tabela de análise de sucesso das promoções verificada/criada.")
+
         query = """
         SELECT pi.CodigoProduto, COUNT(vp.CodigoVenda) AS QuantidadeVendida, 
                SUM(vp.ValorUnitario) AS ValorTotalVendido, pi.Data AS DataPromocao
@@ -223,15 +229,25 @@ class PromotionsDB:
         GROUP BY pi.CodigoProduto, pi.Data
         ORDER BY QuantidadeVendida DESC, ValorTotalVendido DESC;
         """
-        results = []
+        logger.info("Iniciando a consulta de análise de sucesso das promoções.")
+
         try:
             with self.conn.cursor(dictionary=True) as cursor:
                 cursor.execute(query)
                 results = cursor.fetchall()
+                logger.info(f"{len(results)} resultados de promoções encontrados para análise.")
+
+
+            # Usando threads para inserir os resultados de forma paralela
+            logger.info("Iniciando a inserção de resultados de análise de sucesso das promoções.")
+        
+            with ThreadPoolExecutor() as executor:
+                executor.map(lambda res: self.insert_promotion_analysis_results([res]), results)
+            logger.info("Todos os resultados de análise de sucesso das promoções foram inseridos com sucesso.")
+
+
         except mysql.connector.Error as e:
             logger.error(f"Erro ao analisar sucesso das promoções: {e}")
-
-        self.insert_promotion_analysis_results(results)
 
 class DatabaseCleaner:
     def __init__(self, conn):

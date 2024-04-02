@@ -1,6 +1,6 @@
 from ..db.db_config import get_db_connection
 from ..db.db_operations import PromotionsDB
-from ..logging_config import get_logger
+from ..utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -11,7 +11,7 @@ def process_promotions():
         promotions_db = PromotionsDB(conn)
 
         promotions_db.identify_and_insert_promotions()
-        
+
         logger.info("Processamento de promoções concluído com sucesso.")
     except Exception as e:
         logger.error(f"Erro durante o processamento de promoções: {e}")

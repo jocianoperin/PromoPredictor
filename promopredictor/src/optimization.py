@@ -1,6 +1,6 @@
 from ..db.db_config import get_db_connection
 from ..db.db_operations import DatabaseOptimizer
-from ..logging_config import get_logger
+from ..utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 

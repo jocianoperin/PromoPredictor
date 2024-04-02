@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from db.db_config import get_db_connection
-from db.db_operations import PromotionsDB
+from promopredictor.db.db_operations import PromotionsDB
 
 app = Flask(__name__)
 
