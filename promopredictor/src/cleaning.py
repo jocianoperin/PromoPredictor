@@ -4,8 +4,8 @@ from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def main():
-    logger.info("Iniciando cleaning.")
+def perform_cleaning():
+    logger.info("Iniciando processo de limpeza de dados.")
     conn = get_db_connection()
     try:
         cleaner = DatabaseCleaner(conn)
@@ -16,6 +16,9 @@ def main():
     finally:
         if conn.is_connected():
             conn.close()
+
+def main():
+    perform_cleaning()
 
 if __name__ == "__main__":
     main()

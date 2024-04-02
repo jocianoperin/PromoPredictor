@@ -110,6 +110,7 @@ class PromotionsDB:
         return total_promotions
 
     def identify_and_insert_promotions(self):
+        self.create_promotions_table_if_not_exists()
         logger.info("Iniciando a identificação e inserção de promoções.")
         try:
             with self.conn.cursor(dictionary=True) as cursor:
@@ -168,6 +169,69 @@ class PromotionsDB:
         except mysql.connector.Error as e:
             logger.error("Erro ao recuperar promoções: %s", e)
         return promotions
+    
+    def create_promotion_success_analysis_table(self):
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS promotion_success_analysis (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            CodigoProduto INT NOT NULL,
+            DataPromocao DATE NOT NULL,
+            QuantidadeVendida INT,
+            ValorTotalVendido DECIMAL(10, 2),
+            UNIQUE KEY unique_promotion (CodigoProduto, DataPromocao)
+        );
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(create_table_query)
+                self.conn.commit()
+                logger.info("Tabela 'promotion_success_analysis' verificada/criada com sucesso.")
+        except mysql.connector.Error as e:
+            self.conn.rollback()
+            logger.error(f"Erro ao criar a tabela 'promotion_success_analysis': {e}")
+
+    def insert_promotion_analysis_results(self, results):
+        insert_query = """
+        INSERT INTO promotion_success_analysis 
+            (CodigoProduto, DataPromocao, QuantidadeVendida, ValorTotalVendido)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE 
+            QuantidadeVendida = VALUES(QuantidadeVendida), 
+            ValorTotalVendido = VALUES(ValorTotalVendido);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                for result in results:
+                    cursor.execute(insert_query, 
+                        (result['CodigoProduto'], result['DataPromocao'], 
+                         result['QuantidadeVendida'], result['ValorTotalVendido']))
+                self.conn.commit()
+                logger.info("Resultados da análise de promoções inseridos com sucesso.")
+        except mysql.connector.Error as e:
+            self.conn.rollback()
+            logger.error(f"Erro ao inserir resultados da análise de sucesso das promoções: {e}")
+    
+    def analyze_promotion_success(self):
+        self.create_promotion_success_analysis_table()
+        query = """
+        SELECT pi.CodigoProduto, COUNT(vp.CodigoVenda) AS QuantidadeVendida, 
+               SUM(vp.ValorUnitario) AS ValorTotalVendido, pi.Data AS DataPromocao
+        FROM promotions_identified pi
+        JOIN vendasprodutosexport vp ON pi.CodigoProduto = vp.CodigoProduto
+        JOIN vendasexport v ON vp.CodigoVenda = v.Codigo
+        WHERE v.Data = pi.Data
+        GROUP BY pi.CodigoProduto, pi.Data
+        ORDER BY QuantidadeVendida DESC, ValorTotalVendido DESC;
+        """
+        results = []
+        try:
+            with self.conn.cursor(dictionary=True) as cursor:
+                cursor.execute(query)
+                results = cursor.fetchall()
+        except mysql.connector.Error as e:
+            logger.error(f"Erro ao analisar sucesso das promoções: {e}")
+
+        self.insert_promotion_analysis_results(results)
 
 class DatabaseCleaner:
     def __init__(self, conn):
@@ -245,6 +309,7 @@ class DatabaseOptimizer:
                 ]
                 for command in index_commands:
                     cursor.execute(command)
+                    logger.info(f"Índice criado com sucesso: {command}")
                 self.conn.commit()
                 logger.info("Todos os índices foram criados.")
         except mysql.connector.Error as e:

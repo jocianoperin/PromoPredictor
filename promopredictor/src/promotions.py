@@ -4,22 +4,23 @@ from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def main():
+def process_promotions():
     logger.info("Iniciando processo de identificação e inserção de promoções.")
     conn = get_db_connection()
     try:
         promotions_db = PromotionsDB(conn)
-        promotions_db.create_promotions_table_if_not_exists()
 
-        # Agora, essa única chamada cuida tanto da identificação quanto da inserção de promoções.
         promotions_db.identify_and_insert_promotions()
-
+        
         logger.info("Processamento de promoções concluído com sucesso.")
     except Exception as e:
-        logger.error("Erro durante o processamento de promoções: %s", e)
+        logger.error(f"Erro durante o processamento de promoções: {e}")
     finally:
         if conn.is_connected():
             conn.close()
+
+def main():
+    process_promotions()
 
 if __name__ == "__main__":
     main()

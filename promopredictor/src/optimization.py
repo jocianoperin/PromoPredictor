@@ -4,7 +4,7 @@ from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def main():
+def optimize_database():
     logger.info("Iniciando processo de otimização do banco de dados.")
     conn = get_db_connection()
     try:
@@ -16,6 +16,9 @@ def main():
     finally:
         if conn.is_connected():
             conn.close()
+
+def main():
+    optimize_database()
 
 if __name__ == "__main__":
     main()
