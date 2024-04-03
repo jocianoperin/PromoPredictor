@@ -8,6 +8,17 @@ class VendasProdutosExportRepository(IVendasProdutosExportRepository):
     def __init__(self):
         self.conn = get_db_connection()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_connection()
+
+    def close_connection(self):
+        if self.conn.is_connected():
+            self.conn.close()
+            logger.info("Conexão com o banco de dados fechada.")
+
     def clean_data(self):
         try:
             with self.conn.cursor() as cursor:
@@ -18,8 +29,6 @@ class VendasProdutosExportRepository(IVendasProdutosExportRepository):
         except Exception as e:
             logger.error(f"Erro durante a limpeza da tabela 'vendasprodutosexport': {e}")
             self.conn.rollback()
-        finally:
-            self.conn.close()
 
     def index_exists(self, index_name, table_name):
         query = """
@@ -29,12 +38,12 @@ class VendasProdutosExportRepository(IVendasProdutosExportRepository):
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query, (table_name, index_name))
-            result = cursor.fetchone()  # fetchone pode retornar uma tupla ou None
-            # Verifica se result é None antes de prosseguir
-            if result is not None:
-                return result[0] > 0  # type: ignore # Checa se o count é maior que 0
-            else:
-                return False  # Retorna False se result for None
+            result = cursor.fetchone()
+            if isinstance(result, tuple):  # Verificando se result é uma tupla
+                count = result[0]
+                if isinstance(count, int) and count > 0:  # Certificamo-nos de que count é um int e é maior que 0
+                    return True
+            return False
 
     def create_indexes(self):
         indexes_info = [
