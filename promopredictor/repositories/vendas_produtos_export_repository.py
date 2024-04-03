@@ -20,3 +20,47 @@ class VendasProdutosExportRepository(IVendasProdutosExportRepository):
             self.conn.rollback()
         finally:
             self.conn.close()
+
+    def index_exists(self, index_name, table_name):
+        query = """
+        SELECT COUNT(*)
+        FROM information_schema.statistics
+        WHERE table_schema = (SELECT DATABASE()) AND table_name = %s AND index_name = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (table_name, index_name))
+            result = cursor.fetchone()  # fetchone pode retornar uma tupla ou None
+            # Verifica se result é None antes de prosseguir
+            if result is not None:
+                return result[0] > 0  # type: ignore # Checa se o count é maior que 0
+            else:
+                return False  # Retorna False se result for None
+
+    def create_indexes(self):
+        indexes_info = [
+            ("idx_vendasprodutosexport_codigovenda", "vendasprodutosexport", "CodigoVenda"),
+            ("idx_vendasprodutosexport_codigoproduto", "vendasprodutosexport", "CodigoProduto"),
+            ("idx_vendasprodutosexport_codigosecao", "vendasprodutosexport", "CodigoSecao"),
+            ("idx_vendasprodutosexport_codigogrupo", "vendasprodutosexport", "CodigoGrupo"),
+            ("idx_vendasprodutosexport_codigosubgrupo", "vendasprodutosexport", "CodigoSubGrupo"),
+            ("idx_vendasprodutosexport_secaogrupo", "vendasprodutosexport", "CodigoSecao, CodigoGrupo"),
+            ("idx_vendasprodutosexport_valorunitario", "vendasprodutosexport", "ValorUnitario"),
+            ("idx_vendasprodutosexport_quantidade", "vendasprodutosexport", "Quantidade"),
+            ("idx_vendasprodutosexport_desconto", "vendasprodutosexport", "Desconto"),
+            ("idx_vendasprodutosexport_precoempromocao", "vendasprodutosexport", "PrecoemPromocao"),
+        ]
+
+        for index_name, table_name, columns in indexes_info:
+            if not self.index_exists(index_name, table_name):
+                try:
+                    command = f"CREATE INDEX {index_name} ON {table_name} ({columns});"
+                    with self.conn.cursor() as cursor:
+                        cursor.execute(command)
+                        self.conn.commit()
+                        logger.info(f"Índice '{index_name}' criado com sucesso em '{table_name}'.")
+                except Exception as e:
+                    logger.error(f"Erro ao criar índice '{index_name}': {e}")
+                    self.conn.rollback()
+            else:
+                logger.info(f"Índice '{index_name}' já existe em '{table_name}' e não será criado.")
+        logger.info("Processo de criação de índices concluído.")
