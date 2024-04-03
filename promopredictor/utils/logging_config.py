@@ -9,7 +9,7 @@ def get_logger(name):
     logger.setLevel(logging.INFO)  # Ou outro nível conforme necessário
 
     # Define o caminho absoluto para a pasta de logs na raiz do projeto
-    project_root = Path(__file__).resolve().parents[0]  # Ajusta com base na estrutura do seu projeto
+    project_root = Path(__file__).resolve().parents[1]  # Ajusta com base na estrutura do seu projeto
     logs_path = project_root / 'logs'
     os.makedirs(logs_path, exist_ok=True)
 
