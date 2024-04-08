@@ -52,37 +52,73 @@ def fetch_all_products() -> List[Dict[str, Any]]:
             connection.close()
     return products
 
-def process_product_chunk(product_chunk: Dict) -> int:
+def process_product_chunk(product_data: List[Dict[str, Any]]) -> int:
     promotions_identified = 0
-    codigo = product_chunk['CodigoProduto']
-    entries = product_chunk['Entries']
-    logger.info(f"Iniciando processamento do chunk para o produto {codigo}.")
 
-    for i in range(1, len(entries)):
-        avg_cost = sum(e['ValorCusto'] for e in entries[:i]) / i
-        avg_sale_price = sum(e['ValorUnitario'] for e in entries[:i]) / i
+    if product_data:
+        codigo = product_data[0]['CodigoProduto']
+        logger.debug(f"Processando {len(product_data)} entradas de vendas para o produto {codigo}.")
+
+    for data in product_data:
+        # Processamento para identificar se existe uma promoção para cada entrada de venda.
+        # Supõe-se que 'data' contém os dados de vendas de um único produto.
+        avg_cost = sum(d['ValorCusto'] for d in product_data) / len(product_data)
+        avg_sale_price = sum(d['ValorUnitario'] for d in product_data) / len(product_data)
         
-        current_entry = entries[i]
-        if current_entry['ValorUnitario'] < avg_sale_price * 0.95 and abs(current_entry['ValorCusto'] - avg_cost) < avg_cost * 0.05:
-            data_to_insert = {
-                'CodigoProduto': current_entry['CodigoProduto'],
-                'Data': current_entry['Data'],
-                'ValorUnitario': current_entry['ValorUnitario'],
+        # Detalhes do cálculo para a promoção
+        logger.debug(
+            f"Calculando promoção para o produto {data['CodigoProduto']} na data {data['Data']}. "
+            f"Custo médio: {avg_cost}, Preço de venda médio: {avg_sale_price}"
+        )
+
+        if data['ValorUnitario'] < avg_sale_price * 0.95 and abs(data['ValorCusto'] - avg_cost) < avg_cost * 0.05:
+            # Log antes de inserir a promoção
+            logger.debug(
+                f"Promoção identificada para o produto {data['CodigoProduto']} na data {data['Data']}. "
+                f"Valor Unitário: {data['ValorUnitario']}, Valor Tabela: {avg_sale_price}"
+            )
+
+            insert_promotion({
+                'CodigoProduto': data['CodigoProduto'],
+                'Data': data['Data'],
+                'ValorUnitario': data['ValorUnitario'],
                 'ValorTabela': avg_sale_price
-            }
-            insert_promotion(data_to_insert)
+            })
             promotions_identified += 1
+            logger.info(f"Promoção inserida para o produto {data['CodigoProduto']} na data {data['Data']}.")
     
-    logger.debug(f"{promotions_identified} promoções identificadas e inseridas para o produto {codigo}.")
+    logger.debug(f"Total de {promotions_identified} promoções identificadas e inseridas para o produto {codigo}.")
     return promotions_identified
 
-def process_chunks(product_chunks: List[Dict], chunk_size: int = 10):
+def organize_sales_by_product(products: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
+    logger.debug("Organizando vendas por código do produto.")
+    product_sales = {}
+    for product in products:
+        if product['CodigoProduto'] not in product_sales:
+            product_sales[product['CodigoProduto']] = []
+        product_sales[product['CodigoProduto']].append(product)
+    logger.debug("Organização concluída.")
+    return product_sales
+
+def process_chunks(products: List[Dict[str, Any]], chunk_size: int = 10):
     logger.info("Iniciando o processamento paralelo de chunks para identificação de promoções.")
     
+    product_sales = organize_sales_by_product(products)
+    
+    # Processa os dados de vendas por produto
     total_promotions_identified = 0
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(process_product_chunk, chunk) for chunk in product_chunks]
-        for future in as_completed(futures):
-            total_promotions_identified += future.result()
 
-    logger.info(f"Total de {total_promotions_identified} promoções identificadas em todos os chunks.")
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_product = {executor.submit(process_product_chunk, data): code for code, data in product_sales.items()}
+        for future in as_completed(future_to_product):
+            product_code = future_to_product[future]
+            logger.debug(f"Iniciando o processamento assíncrono para o produto {product_code}.")
+            
+            try:
+                promotions_identified = future.result()
+                total_promotions_identified += promotions_identified
+                logger.info(f"Promoções identificadas para o produto {product_code}: {promotions_identified}")
+            except Exception as e:
+                logger.error(f"Erro ao processar o produto {product_code}: {e}")
+
+    logger.info(f"Processamento paralelo concluído. Total de {total_promotions_identified} promoções identificadas em todos os produtos.")

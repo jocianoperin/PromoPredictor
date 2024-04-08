@@ -3,7 +3,7 @@ from src.data.create_tables import create_table_if_not_exists
 from src.data.data_cleaner import delete_data, update_data
 from src.data.index_manager import create_indexes
 from src.data.promotion_processor import fetch_all_products, process_chunks
-from src.data.promotion_sales_processor import calculate_and_insert_sales_indicators
+from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -71,7 +71,9 @@ def main():
         else:
             logger.info("Nenhum produto para processar.")
 
-        
+         # Processamento das promoções em chunks e cálculo dos indicadores de vendas
+        logger.info("Iniciando o processamento das promoções para cálculo dos indicadores de vendas...")
+        process_promotions_in_chunks()
 
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
