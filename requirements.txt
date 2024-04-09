@@ -2,4 +2,6 @@ mysql.connector
 mysql-connector-python
 Flask
 numpy
-numba
+sklearn
+pandas
+joblib

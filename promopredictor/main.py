@@ -5,6 +5,8 @@ from src.data.index_manager import create_indexes
 from src.data.promotion_processor import fetch_all_products, process_chunks
 from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
+from src.models.train_model import train_model
+from src.models.predict_model import make_prediction
 
 logger = get_logger(__name__)
 
@@ -76,6 +78,17 @@ def main():
         process_promotions_in_chunks()
 
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
+
+        # Treinamento do modelo
+        logger.info("Iniciando o treinamento do modelo de Machine Learning...")
+        train_model()
+        logger.info("Treinamento do modelo concluído com sucesso.")
+
+        # Opcional: Realizar uma predição de teste
+        logger.info("Realizando uma predição de teste com o modelo treinado...")
+        make_prediction()  # Descomente se tiver implementado
+        logger.info("Predição de teste concluída.")
+
     except Exception as e:
         logger.error(f"Erro durante o processo de inicialização do projeto: {e}")
 
