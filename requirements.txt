@@ -1,6 +1,8 @@
 mysql.connector
 mysql-connector-python
 Flask
+pandas
+joblib
 numpy
 sklearn
 pandas

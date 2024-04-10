@@ -10,27 +10,21 @@ from src.models.predict_model import make_prediction
 
 logger = get_logger(__name__)
 
-def main():
-    try:
-        logger.info("Iniciando o processo de inicialização do projeto...")
-        
-        # Primeira tarefa: criar as tabelas no banco de dados, se não existirem
-        logger.info("Criando tabelas 'vendasexport' e 'vendasprodutosexport', se não existirem...")
-        create_table_if_not_exists()  
+def setup_database():
+    """Cria tabelas e índices no banco de dados, se necessário."""
+    logger.info("Iniciando a configuração do banco de dados...")
+    create_table_if_not_exists()
+    logger.info("Tabelas criadas/atualizadas com sucesso.")
 
-        # Limpeza de dados nas tabelas recém-criadas ou existentes
-        logger.info("Iniciando a limpeza de dados nas tabelas 'vendasexport' e 'vendasprodutosexport'...")
-        delete_data("vendasprodutosexport", "ValorTotal <= 0 OR Quantidade <= 0")
-        delete_data("vendasexport", "TotalPedido <= 0")
-        
-        # Exemplo de chamada para atualizar dados (ajuste conforme necessário)
-        # logger.info("Atualizando dados na tabela 'vendasexport'...")
-        # update_data("vendasexport", "Status='Em Análise'", "TotalPedido > 5000")
-
-        # Etapa de criação de índices
-        logger.info("Iniciando o processo de criação de índices.")
-        # Criação de índices para 'vendasprodutosexport'
-        indexes_vendasprodutosexport = [
+    # Definindo índices para vendasexport e vendasprodutosexport
+    indexes_vendasexport = [
+            ("idx_codigo", "vendasexport", "Codigo"),
+            ("idx_data", "vendasexport", "Data"),
+            ("idx_codigocliente", "vendasexport", "CodigoCliente"),
+            ("idx_data_codigocliente", "vendasexport", "Data, CodigoCliente"),
+            ("idx_totalpedido", "vendasexport", "TotalPedido"),
+        ]
+    indexes_vendasprodutosexport = [
             ("idx_vendasprodutosexport_codigovenda", "vendasprodutosexport", "CodigoVenda"),
             ("idx_vendasprodutosexport_codigoproduto", "vendasprodutosexport", "CodigoProduto"),
             ("idx_vendasprodutosexport_codigosecao", "vendasprodutosexport", "CodigoSecao"),
@@ -42,53 +36,45 @@ def main():
             ("idx_vendasprodutosexport_desconto", "vendasprodutosexport", "Desconto"),
             ("idx_vendasprodutosexport_precoempromocao", "vendasprodutosexport", "PrecoemPromocao"),
         ]
-        create_indexes(indexes_vendasprodutosexport)
+    create_indexes(indexes_vendasprodutosexport + indexes_vendasexport)
+    logger.info("Índices criados/atualizados com sucesso.")
 
-        # Criação de índices para 'vendasexport'
-        indexes_vendasexport = [
-            ("idx_codigo", "vendasexport", "Codigo"),
-            ("idx_data", "vendasexport", "Data"),
-            ("idx_codigocliente", "vendasexport", "CodigoCliente"),
-            ("idx_data_codigocliente", "vendasexport", "Data, CodigoCliente"),
-            ("idx_totalpedido", "vendasexport", "TotalPedido"),
-        ]
-        create_indexes(indexes_vendasexport)
+def clean_data():
+    """Limpa os dados nas tabelas de vendas."""
+    logger.info("Iniciando a limpeza de dados...")
+    delete_data("vendasprodutosexport", "ValorTotal <= 0 OR Quantidade <= 0")
+    delete_data("vendasexport", "TotalPedido <= 0")
+    logger.info("Limpeza de dados concluída com sucesso.")
 
-        # Buscar todos os produtos para processamento de promoções
-        logger.info("Iniciando a busca de todos os produtos para processamento de promoções.")
-        products = fetch_all_products()
-        logger.info(f"Busca concluída. {len(products)} produtos encontrados para processamento.")
+def process_promotions():
+    """Processa as promoções identificadas nos produtos."""
+    logger.info("Iniciando o processamento de promoções...")
+    products = fetch_all_products()
+    if products:
+        process_chunks(products)
+    else:
+        logger.info("Nenhum produto para processar.")
+    process_promotions_in_chunks()
+    logger.info("Processamento de promoções concluído com sucesso.")
 
-        if products:
-            logger.info(f"Iniciando o processamento de {len(products)} produtos para identificação de promoções.")
+def train_and_test_model():
+    """Treina o modelo de machine learning e realiza uma predição de teste."""
+    logger.info("Iniciando o treinamento do modelo...")
+    train_model()
+    logger.info("Treinamento concluído com sucesso.")
 
-            # Dividir 'products' em chunks de tamanho 'chunk_size'
-            chunk_size = 10  # Defina o tamanho do chunk desejado
-            for i in range(0, len(products), chunk_size):
-                product_chunk = products[i:i + chunk_size]
-                logger.info(f"Processando chunk de produtos {i+1} até {i+chunk_size}")
-                process_chunks(product_chunk)  # Aqui você passa um único chunk de cada vez
+    logger.info("Realizando uma predição de teste...")
+    make_prediction()
+    logger.info("Predição de teste concluída.")
 
-            logger.info("Processamento de promoções concluído com sucesso.")
-        else:
-            logger.info("Nenhum produto para processar.")
-
-         # Processamento das promoções em chunks e cálculo dos indicadores de vendas
-        logger.info("Iniciando o processamento das promoções para cálculo dos indicadores de vendas...")
-        process_promotions_in_chunks()
-
+def main():
+    try:
+        logger.info("Iniciando o processo de inicialização do projeto...")
+        setup_database()
+        clean_data()
+        process_promotions()
+        train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
-
-        # Treinamento do modelo
-        logger.info("Iniciando o treinamento do modelo de Machine Learning...")
-        train_model()
-        logger.info("Treinamento do modelo concluído com sucesso.")
-
-        # Opcional: Realizar uma predição de teste
-        logger.info("Realizando uma predição de teste com o modelo treinado...")
-        make_prediction()  # Descomente se tiver implementado
-        logger.info("Predição de teste concluída.")
-
     except Exception as e:
         logger.error(f"Erro durante o processo de inicialização do projeto: {e}")
 

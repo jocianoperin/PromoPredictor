@@ -65,7 +65,7 @@ def train_model():
 
     # Avaliação
     predictions = pipeline.predict(X_test)
-    logger.info("\n" + classification_report(y_test, predictions))
+    logger.info("\n", classification_report(y_test, predictions))
 
     # Salvar o modelo treinado
     joblib.dump(pipeline, 'trained_model.pkl')
