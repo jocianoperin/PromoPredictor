@@ -57,8 +57,9 @@ def process_product_chunk(product_data: List[Dict[str, Any]]) -> int:
         codigo = product_data[0]['CodigoProduto']
 
         # Calculando o custo médio e o preço de venda médio para os critérios de promoção
-        avg_cost = sum(d['ValorCusto'] for d in product_data) / len(product_data)
-        avg_sale_price = sum(d['ValorUnitario'] for d in product_data) / len(product_data)
+        len_product_data = len(product_data)
+        avg_cost = sum(d['ValorCusto'] or 0 for d in product_data) / len_product_data if len_product_data else 0
+        avg_sale_price = sum(d['ValorUnitario'] or 0 for d in product_data) / len_product_data if len_product_data else 0
                 
         sorted_data = sorted(product_data, key=lambda x: x['Data'])
         promo_start = None

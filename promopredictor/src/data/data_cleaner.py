@@ -29,3 +29,17 @@ def update_data(table_name, updates, condition):
     update_query = f"UPDATE {table_name} SET {updates} WHERE {condition}"
     affected_rows = execute_query(update_query)
     logger.info(f"UPDATE na tabela '{table_name}': {affected_rows} linhas atualizadas sob a condição '{condition}'.")
+
+def clean_null_values(table_name, columns):
+    """
+    Atualiza valores NULL para 0 para as colunas especificadas de uma tabela.
+    
+    Args:
+    - table_name (str): Nome da tabela a ser atualizada.
+    - columns (list): Lista de colunas para as quais os valores NULL serão atualizados.
+    """
+    for column in columns:
+        condition = f"{column} IS NULL"
+        updates = f"{column} = 0"
+        affected_rows = update_data(table_name, updates, condition)
+        logger.info(f"Limpeza na tabela '{table_name}': {affected_rows} linhas atualizadas onde {column} era NULL.")

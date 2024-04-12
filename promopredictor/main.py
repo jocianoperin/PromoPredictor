@@ -1,6 +1,6 @@
 # main.py na raiz do projeto
 from src.data.create_tables import create_table_if_not_exists
-from src.data.data_cleaner import delete_data, update_data
+from src.data.data_cleaner import delete_data, update_data, clean_null_values
 from src.data.index_manager import create_indexes
 from src.data.promotion_processor import fetch_all_products, process_chunks
 from src.data.promotion_sales_processor import process_promotions_in_chunks
@@ -44,6 +44,8 @@ def clean_data():
     logger.info("Iniciando a limpeza de dados...")
     delete_data("vendasprodutosexport", "ValorTotal <= 0 OR Quantidade <= 0")
     delete_data("vendasexport", "TotalPedido <= 0")
+    # Adicionando limpeza de valores NULL
+    clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario"])
     logger.info("Limpeza de dados concluída com sucesso.")
 
 def process_promotions():
@@ -73,7 +75,7 @@ def main():
         setup_database()
         clean_data()
         process_promotions()
-        train_and_test_model()
+        #train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
         logger.error(f"Erro durante o processo de inicialização do projeto: {e}")

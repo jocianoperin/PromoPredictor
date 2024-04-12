@@ -1,4 +1,4 @@
-from ..services.database_connection import get_db_connection  # Ajuste o import conforme a localização real
+from ..services.database_connection import get_db_connection 
 from ..utils.logging_config import get_logger
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
