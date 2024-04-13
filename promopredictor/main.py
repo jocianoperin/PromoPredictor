@@ -7,11 +7,16 @@ from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
 from src.models.train_model import train_model
 from src.models.predict_model import make_prediction
+from src.services.database_reset import drop_tables
 
 logger = get_logger(__name__)
 
 def setup_database():
-    """Cria tabelas e índices no banco de dados, se necessário."""
+    """Limpa, cria tabelas e índices no banco de dados, se necessário."""
+    logger.info("Iniciando a limpeza do banco de dados...")
+    drop_tables()
+    logger.info("Banco de dados limpo com sucesso.")
+
     logger.info("Iniciando a configuração do banco de dados...")
     create_table_if_not_exists()
     logger.info("Tabelas criadas/atualizadas com sucesso.")

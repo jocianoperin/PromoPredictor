@@ -8,6 +8,7 @@ logger = get_logger(__name__)
 def calculate_sales_indicators_for_promotion(promo: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"Calculando indicadores de vendas para o período promocional do produto {promo['CodigoProduto']} de {promo['DataInicioPromocao']} até {promo['DataFimPromocao']}")
     connection = get_db_connection()
+    indicators = {}
 
     if connection:
         try:
@@ -22,7 +23,7 @@ def calculate_sales_indicators_for_promotion(promo: Dict[str, Any]) -> Dict[str,
                 """, (promo['CodigoProduto'], promo['DataInicioPromocao'], promo['DataFimPromocao']))
                 result = cast(Dict[str, Any], cursor.fetchone())
                 if result and result["QuantidadeTotal"] is not None and result["ValorTotalVendido"] is not None:                    
-                    return {
+                    indicators = {
                         "CodigoProduto": promo['CodigoProduto'],
                         "DataInicioPromocao": promo['DataInicioPromocao'],
                         "DataFimPromocao": promo['DataFimPromocao'],
@@ -33,25 +34,28 @@ def calculate_sales_indicators_for_promotion(promo: Dict[str, Any]) -> Dict[str,
             logger.error(f"Erro ao calcular indicadores de vendas: {e}")
         finally:
             connection.close()
-    return {}
+    return indicators
 
 
 def insert_sales_indicators(indicators: Dict[str, Any]):
-    connection = get_db_connection()
-    if connection:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO sales_indicators (CodigoProduto, DataInicioPromocao, DataFimPromocao, QuantidadeTotal, ValorTotalVendido)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE QuantidadeTotal = VALUES(QuantidadeTotal), ValorTotalVendido = VALUES(ValorTotalVendido);
-                """, (indicators['CodigoProduto'], indicators['DataInicioPromocao'], indicators['DataFimPromocao'], indicators['QuantidadeTotal'], indicators['ValorTotalVendido']))
-                connection.commit()
-        except Exception as e:
-            logger.error(f"Erro ao inserir indicadores de vendas para o produto {indicators['CodigoProduto']}: {e}")
-            connection.rollback()
-        finally:
-            connection.close()
+    if indicators:
+        connection = get_db_connection()
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO sales_indicators (CodigoProduto, DataInicioPromocao, DataFimPromocao, QuantidadeTotal, ValorTotalVendido)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE 
+                            QuantidadeTotal = VALUES(QuantidadeTotal), 
+                            ValorTotalVendido = VALUES(ValorTotalVendido);
+                    """, (indicators['CodigoProduto'], indicators['DataInicioPromocao'], indicators['DataFimPromocao'], indicators['QuantidadeTotal'], indicators['ValorTotalVendido']))
+                    connection.commit()
+            except Exception as e:
+                logger.error(f"Erro ao inserir indicadores de vendas para o produto {indicators['CodigoProduto']}: {e}")
+                connection.rollback()
+            finally:
+                connection.close()
 
 def fetch_promotions() -> List[Dict[str, Any]]:
     connection = get_db_connection()
@@ -78,7 +82,7 @@ def process_promotions_in_chunks():
     promotions = fetch_promotions()
     if promotions:
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(calculate_sales_indicators_for_promotion, promo) for promo in promotions]
+            futures = {executor.submit(calculate_sales_indicators_for_promotion, promo) for promo in promotions}
             for future in as_completed(futures):
                 indicators = future.result()
                 if indicators:
