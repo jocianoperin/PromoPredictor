@@ -16,13 +16,13 @@ def calculate_sales_indicators_for_promotion(promo: Dict[str, Any]) -> Dict[str,
                 cursor.execute("""
                     SELECT 
                         SUM(vp.Quantidade) AS QuantidadeTotal, 
-                        SUM(vp.ValorTotal) AS ValorTotalVendido
+                        SUM(v.TotalPedido) AS ValorTotalVendido
                     FROM vendasprodutosexport vp
                     JOIN vendasexport v ON vp.CodigoVenda = v.Codigo
                     WHERE vp.CodigoProduto = %s AND v.Data BETWEEN %s AND %s
                 """, (promo['CodigoProduto'], promo['DataInicioPromocao'], promo['DataFimPromocao']))
                 result = cast(Dict[str, Any], cursor.fetchone())
-                if result and result["QuantidadeTotal"] is not None and result["ValorTotalVendido"] is not None:                    
+                if result and result["QuantidadeTotal"] is not None and result["ValorTotalVendido"] is not None:
                     indicators = {
                         "CodigoProduto": promo['CodigoProduto'],
                         "DataInicioPromocao": promo['DataInicioPromocao'],

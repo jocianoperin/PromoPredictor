@@ -35,7 +35,8 @@ def fetch_all_products() -> List[Dict[str, Any]]:
                     vp.CodigoProduto, 
                     v.Data, 
                     vp.ValorUnitario, 
-                    vp.ValorCusto
+                    vp.ValorCusto,
+                    vp.ValorTabela
                 FROM vendasprodutosexport vp
                 JOIN vendasexport v ON vp.CodigoVenda = v.Codigo
                 ORDER BY vp.CodigoProduto, v.Data;
@@ -56,70 +57,82 @@ def process_product_chunk(product_data: List[Dict[str, Any]]) -> int:
     if product_data:
         codigo = product_data[0]['CodigoProduto']
 
-        # Calculando o custo médio e o preço de venda médio para os critérios de promoção
+        # Calculando o custo médio e o preço de venda médio
         len_product_data = len(product_data)
         avg_cost = sum(d['ValorCusto'] or 0 for d in product_data) / len_product_data if len_product_data else 0
         avg_sale_price = sum(d['ValorUnitario'] or 0 for d in product_data) / len_product_data if len_product_data else 0
-                
+
+        # Ordena os dados por data
         sorted_data = sorted(product_data, key=lambda x: x['Data'])
         promo_start = None
         promo_end = None
         previous_date = None
+        previous_tabela = None
+        previous_custo = None
+        stable_days = True
 
-        for data in sorted_data:
-            current_date = data['Data']
-            is_promotion = data['ValorUnitario'] < avg_sale_price * 0.95 and abs(data['ValorCusto'] - avg_cost) < avg_cost * 0.05
+        # Verifica estabilidade de valores de tabela e custo
+        for i, data in enumerate(sorted_data):
+            if i > 0 and (data['ValorTabela'] != previous_tabela or not is_cost_stable(previous_custo, data['ValorCusto'])):
+                stable_days = False
+                break
+            previous_tabela = data['ValorTabela']
+            previous_custo = data['ValorCusto']
 
-            if is_promotion:
-                if previous_date and current_date - timedelta(days=1) == previous_date:
-                    # Condição de promoção se mantém, atualizar fim do período
-                    promo_end = current_date
+        # Se os valores são estáveis, prossegue com a verificação de promoções
+        if stable_days:
+            for data in sorted_data:
+                current_date = data['Data']
+                is_promotion = data['ValorUnitario'] < avg_sale_price * 0.95 and abs(data['ValorCusto'] - avg_cost) < avg_cost * 0.05
+
+                if is_promotion:
+                    if previous_date and current_date - timedelta(days=1) == previous_date:
+                        promo_end = current_date
+                    else:
+                        if promo_start and promo_end:
+                            insert_promotion({
+                                'CodigoProduto': codigo,
+                                'DataInicioPromocao': promo_start,
+                                'DataFimPromocao': promo_end,
+                                'ValorUnitario': data['ValorUnitario'],
+                                'ValorTabela': data['ValorTabela'],
+                            })
+                            promotions_identified += 1
+                        promo_start = current_date
+                        promo_end = current_date
+
                 else:
-                    # Novo período promocional, processar o anterior se existir
                     if promo_start and promo_end:
                         insert_promotion({
                             'CodigoProduto': codigo,
                             'DataInicioPromocao': promo_start,
                             'DataFimPromocao': promo_end,
                             'ValorUnitario': data['ValorUnitario'],
-                            'ValorTabela': avg_sale_price,
+                            'ValorTabela': data['ValorTabela'],
                         })
                         promotions_identified += 1
-                    # Iniciar novo período
-                    promo_start = current_date
-                    promo_end = current_date
+                        promo_start = None
+                        promo_end = None
 
-            else:
-                # Se o registro atual não atende aos critérios de promoção mas existem datas de início e fim registradas, 
-                # finaliza a promoção anterior antes de limpar as variáveis de controle
-                if promo_start and promo_end:
-                    insert_promotion({
-                        'CodigoProduto': codigo,
-                        'DataInicioPromocao': promo_start,
-                        'DataFimPromocao': promo_end,
-                        'ValorUnitario': data['ValorUnitario'],
-                        'ValorTabela': avg_sale_price,
-                    })
-                    promotions_identified += 1
-                    promo_start = None
-                    promo_end = None
-            
-            previous_date = current_date
+                previous_date = current_date
 
-        # Processar a última promoção identificada, se aplicável
-        if promo_start and promo_end:
-            insert_promotion({
-                'CodigoProduto': codigo,
-                'DataInicioPromocao': promo_start,
-                'DataFimPromocao': promo_end,
-                'ValorUnitario': data['ValorUnitario'],
-                'ValorTabela': avg_sale_price,
-            })
-            promotions_identified += 1
+            if promo_start and promo_end:
+                insert_promotion({
+                    'CodigoProduto': codigo,
+                    'DataInicioPromocao': promo_start,
+                    'DataFimPromocao': promo_end,
+                    'ValorUnitario': data['ValorUnitario'],
+                    'ValorTabela': data['ValorTabela'],
+                })
+                promotions_identified += 1
 
     if promotions_identified > 0:
         logger.info(f"Produto {codigo}: {promotions_identified} períodos promocionais identificados.")
+
     return promotions_identified
+
+def is_cost_stable(previous_cost, current_cost):
+    return abs(current_cost - previous_cost) <= previous_cost * 0.05
 
 def organize_sales_by_product(products: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
     product_sales = {}

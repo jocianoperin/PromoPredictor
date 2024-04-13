@@ -38,12 +38,12 @@ def create_table_if_not_exists():
                 cursor.execute("""
                         CREATE TABLE IF NOT EXISTS sales_indicators (
                             id INT AUTO_INCREMENT PRIMARY KEY,
-                            Data DATE NOT NULL,
+                            CodigoProduto INT NOT NULL,
+                            DataInicioPromocao DATE NOT NULL,
+                            DataFimPromocao DATE NOT NULL,
                             QuantidadeTotal INT,
-                            QuantidadePromocional INT,
                             ValorTotalVendido DECIMAL(10, 2),
-                            ValorPromocionalVendido DECIMAL(10, 2),
-                            UNIQUE KEY unique_daily (Data)
+                            UNIQUE KEY unique_indicator (CodigoProduto, DataInicioPromocao, DataFimPromocao)
                         );
                     """)
                 tables_created.append("sales_indicators")
