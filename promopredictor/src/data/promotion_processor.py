@@ -14,6 +14,7 @@ def insert_promotion(promo: dict):
         
         try:
             with connection.cursor() as cursor:
+                logger.info(f"Inserindo/atualizando promoção no banco de dados para o produto {promo['CodigoProduto']}...")
                 insert_query = """
                     INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, ValorUnitario, ValorTabela)
                     VALUES (%s, %s, %s, %s, %s)
@@ -27,6 +28,7 @@ def insert_promotion(promo: dict):
                                             promo['DataFimPromocao'], promo['ValorUnitario'],
                                             promo['ValorTabela']))
                 connection.commit()
+                logger.info("Promoção inserida/atualizada com sucesso.")
         except Exception as e:
             logger.error(f"Erro ao inserir/atualizar período promocional: {e}")
             if connection is not None:
@@ -45,6 +47,7 @@ def fetch_all_products() -> pd.DataFrame:
 
     try:
         with connection.cursor(dictionary=True) as cursor:
+            logger.info("Buscando produtos do banco de dados...")
             query = """
                 SELECT 
                     vp.CodigoProduto, 
@@ -57,7 +60,9 @@ def fetch_all_products() -> pd.DataFrame:
                 ORDER BY vp.CodigoProduto, v.Data;
             """
             cursor.execute(query)
-            return pd.DataFrame(cursor.fetchall())
+            products = pd.DataFrame(cursor.fetchall())
+            logger.info(f"Produtos buscados com sucesso. Total de produtos: {len(products)}")
+            return products
     except Exception as e:
         logger.error(f"Erro ao buscar produtos: {e}")
         return pd.DataFrame()
@@ -120,9 +125,14 @@ def process_product_chunk(df: pd.DataFrame) -> int:
     return promotions_identified
 
 def organize_sales_by_product(products: pd.DataFrame) -> DataFrameGroupBy:
+    logger.info("Organizando vendas por produto...")
     return products.groupby('CodigoProduto')
 
 def process_chunks(products_df: pd.DataFrame):
+    if products_df.empty:
+        logger.info("Nenhum produto encontrado para processamento.")
+        return
+
     product_sales = organize_sales_by_product(products_df)
     total_promotions_identified = 0
 
@@ -135,7 +145,7 @@ def process_chunks(products_df: pd.DataFrame):
 
 if __name__ == "__main__":
     products_df = fetch_all_products()
-    if not products_df.empty:
+    if not products_df.empty:  # Certifique-se de que esta linha esteja assim
         process_chunks(products_df)
     else:
         logger.info("Nenhum produto encontrado para processamento.")

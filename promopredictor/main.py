@@ -57,7 +57,7 @@ def process_promotions():
     """Processa as promoções identificadas nos produtos."""
     logger.info("Iniciando o processamento de promoções...")
     products = fetch_all_products()
-    if products:
+    if not products.empty:  # Corrigido para verificar se o DataFrame não está vazio
         process_chunks(products)
     else:
         logger.info("Nenhum produto para processar.")
