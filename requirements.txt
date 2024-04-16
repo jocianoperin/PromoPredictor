@@ -4,6 +4,9 @@ Flask
 pandas
 joblib
 numpy
-sklearn
+scikit-learn
 pandas
 joblib
+pmdarima
+statsmodels
+threadpoolctl
