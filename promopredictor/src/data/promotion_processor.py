@@ -1,9 +1,9 @@
-# src/data/promotion_processor.py
 from src.services.database_connection import get_db_connection
 from src.utils.logging_config import get_logger
+from src.models.time_series_modeling import train_arima_model, forecast_price
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import timedelta
 import pandas as pd
+from datetime import timedelta
 from pandas.core.groupby import DataFrameGroupBy
 
 logger = get_logger(__name__)
@@ -65,23 +65,58 @@ def fetch_all_products() -> pd.DataFrame:
         if connection is not None:
             connection.close()
 
-def process_product_chunk(product_df: pd.DataFrame) -> int:
+def process_product_chunk(df: pd.DataFrame) -> int:
     promotions_identified = 0
-    if not product_df.empty:
-        product_df.sort_values(by='Data', inplace=True)
+    if not df.empty:
+        df.sort_values(by='Data', inplace=True)
+        df['Data'] = pd.to_datetime(df['Data'])
 
-        avg_cost = product_df['ValorCusto'].mean()
-        avg_sale_price = product_df['ValorUnitario'].mean()
+        # Cria a série temporal de preços para modelagem
+        price_series = df.set_index('Data')['ValorUnitario']
+        
+        # Treina o modelo ARIMA
+        model_fit = train_arima_model(price_series)
+        
+        # Se o modelo ARIMA falhar, a função train_arima_model deve retornar None
+        if model_fit is None:
+            logger.error(f"Não foi possível treinar o modelo ARIMA para o produto {df['CodigoProduto'].iloc[0]}")
+            return promotions_identified
+        
+        promo_start, promo_end, previous_date = None, None, None
+        for _, row in df.iterrows():
+            current_date = row['Data']
+            forecasted_price = forecast_price(model_fit, steps=1)
+            
+            # Condição de promoção baseada na previsão do modelo ARIMA
+            if forecasted_price is not None and row['ValorUnitario'] < forecasted_price * 0.95:
+                promo_end = current_date
+                if promo_start is None:
+                    promo_start = current_date
+            else:
+                if promo_start is not None and promo_end is not None:
+                    # Registra a promoção
+                    insert_promotion({
+                        'CodigoProduto': row['CodigoProduto'],
+                        'DataInicioPromocao': promo_start,
+                        'DataFimPromocao': promo_end,
+                        'ValorUnitario': row['ValorUnitario'],
+                        'ValorTabela': row['ValorTabela'],
+                    })
+                    promotions_identified += 1
+                    promo_start, promo_end = None, None
+            previous_date = current_date
+        
+        # Verificar se a última promoção foi finalizada
+        if promo_start is not None and promo_end is not None:
+            insert_promotion({
+                'CodigoProduto': row['CodigoProduto'],
+                'DataInicioPromocao': promo_start,
+                'DataFimPromocao': promo_end,
+                'ValorUnitario': row['ValorUnitario'],
+                'ValorTabela': row['ValorTabela'],
+            })
+            promotions_identified += 1
 
-        for _, row in product_df.iterrows():
-            if row['ValorUnitario'] < avg_sale_price * 0.95 and abs(row['ValorCusto'] - avg_cost) < avg_cost * 0.05:
-                # Início e término das promoções não implementados no código original
-                # Lógica para determinar o início e término das promoções deve ser adicionada aqui
-                pass
-
-        # Lembre-se de chamar insert_promotion para cada promoção identificada
-        # insert_promotion(promo)
-    
     return promotions_identified
 
 def organize_sales_by_product(products: pd.DataFrame) -> DataFrameGroupBy:

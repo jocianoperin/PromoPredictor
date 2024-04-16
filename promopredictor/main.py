@@ -77,8 +77,8 @@ def train_and_test_model():
 def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
-        setup_database()
-        clean_data()
+        #setup_database()
+        #clean_data()
         process_promotions()
         #train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
