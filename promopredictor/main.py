@@ -8,10 +8,7 @@ from src.utils.logging_config import get_logger
 from src.models.train_model import train_model
 from src.models.predict_model import make_prediction
 from src.services.database_reset import drop_tables
-from src.data.data_cleaner import remove_duplicates, remove_invalid_records, standardize_formatting
-from src.data.outlier_treatment import identify_and_treat_outliers
-from src.data.data_conversion import convert_data_types
-from src.data.data_exploration import explore_data
+
 
 logger = get_logger(__name__)
 
@@ -81,21 +78,9 @@ def train_and_test_model():
 def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
-        setup_database()
-        clean_data()
-        remove_duplicates("vendasexport")
-        remove_duplicates("vendasprodutosexport")
-        remove_invalid_records("vendasexport")
-        remove_invalid_records("vendasprodutosexport")
-        standardize_formatting("vendasexport")
-        standardize_formatting("vendasprodutosexport")
-        identify_and_treat_outliers("vendasexport")
-        identify_and_treat_outliers("vendasprodutosexport")
-        convert_data_types("vendasexport")
-        convert_data_types("vendasprodutosexport")
-        explore_data("vendasexport")
-        explore_data("vendasprodutosexport")
-        #process_promotions()
+        #setup_database()
+        #clean_data()
+        process_promotions()
         #train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
