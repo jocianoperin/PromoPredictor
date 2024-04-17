@@ -1,5 +1,6 @@
 mysql.connector
 mysql-connector-python
+sqlalchemy
 Flask
 pandas
 joblib

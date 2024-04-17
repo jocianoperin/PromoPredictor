@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from src.services.database_connection import get_db_connection
 from src.utils.logging_config import get_logger
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = get_logger(__name__)
 
@@ -11,11 +12,11 @@ def explore_data(table_name):
     Args:
         table_name (str): Nome da tabela na qual as análises exploratórias serão realizadas.
     """
-    connection = get_db_connection()
-    if connection:
+    engine = get_db_connection()  # Supõe-se que get_db_connection retorna um engine do SQLAlchemy.
+    if engine:
         try:
-            query = f"SELECT * FROM {table_name}"
-            data = pd.read_sql_query(query, connection)
+            # Utilizando engine do SQLAlchemy com pandas para ler a consulta SQL.
+            data = pd.read_sql_table(table_name, engine)
             
             # Análise de dados ausentes
             missing_data = data.isnull().sum()
@@ -26,14 +27,15 @@ def explore_data(table_name):
             logger.info(f"Estatísticas descritivas da tabela '{table_name}':\n{descriptive_stats}")
             
             # Visualizações (histogramas, gráficos de dispersão, etc.)
-            # Por exemplo:
+            # Exemplo de histograma:
             data.hist(bins=30, figsize=(12, 8))
             plt.tight_layout()
             plt.show()
             
-            # Adicione outras análises exploratórias conforme necessário
-            
-        except Exception as e:
+            # Adicionar outras análises exploratórias conforme necessário
+
+        except SQLAlchemyError as e:
             logger.error(f"Erro ao realizar análises exploratórias na tabela '{table_name}': {e}")
         finally:
-            connection.close()
+            engine.dispose()  # Corretamente descartando o engine.
+

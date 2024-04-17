@@ -5,48 +5,39 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from datetime import timedelta
 from pandas.core.groupby import DataFrameGroupBy
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = get_logger(__name__)
 
 def insert_promotion(promo: dict):
-    connection = get_db_connection()
-    if connection is not None: 
-        
+    engine = get_db_connection()  # Assume que get_db_connection retorna um engine SQLAlchemy.
+    with engine.connect() as connection:
         try:
-            with connection.cursor() as cursor:
-                logger.info(f"Inserindo/atualizando promoção no banco de dados para o produto {promo['CodigoProduto']}...")
-                insert_query = """
-                    INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, ValorUnitario, ValorTabela)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    ValorUnitario = VALUES(ValorUnitario),
-                    ValorTabela = VALUES(ValorTabela),
-                    DataInicioPromocao = VALUES(DataInicioPromocao),
-                    DataFimPromocao = VALUES(DataFimPromocao);
-                """
-                cursor.execute(insert_query, (promo['CodigoProduto'], promo['DataInicioPromocao'],
-                                            promo['DataFimPromocao'], promo['ValorUnitario'],
-                                            promo['ValorTabela']))
-                connection.commit()
-                logger.info("Promoção inserida/atualizada com sucesso.")
-        except Exception as e:
+            logger.info(f"Inserindo/atualizando promoção no banco de dados para o produto {promo['CodigoProduto']}...")
+            insert_query = """
+                INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, ValorUnitario, ValorTabela)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                ValorUnitario = VALUES(ValorUnitario),
+                ValorTabela = VALUES(ValorTabela),
+                DataInicioPromocao = VALUES(DataInicioPromocao),
+                DataFimPromocao = VALUES(DataFimPromocao);
+            """
+            connection.execute(insert_query, (promo['CodigoProduto'], promo['DataInicioPromocao'],
+                                              promo['DataFimPromocao'], promo['ValorUnitario'],
+                                              promo['ValorTabela']))
+            connection.commit()
+            logger.info("Promoção inserida/atualizada com sucesso.")
+        except SQLAlchemyError as e:
             logger.error(f"Erro ao inserir/atualizar período promocional: {e}")
-            if connection is not None:
-                connection.rollback()
+            connection.rollback()
         finally:
-            if connection is not None:
-                connection.close()
-    else:
-        logger.error("Falha ao obter conexão com o banco de dados.")
+            engine.dispose()
 
 def fetch_all_products() -> pd.DataFrame:
-    connection = get_db_connection()
-    if connection is None:
-        logger.error("Falha ao obter conexão com o banco de dados.")
-        return pd.DataFrame()
-
+    engine = get_db_connection()  # Assume que get_db_connection retorna um engine SQLAlchemy.
     try:
-        with connection.cursor(dictionary=True) as cursor:
+        with engine.connect() as connection:
             logger.info("Buscando produtos do banco de dados...")
             query = """
                 SELECT 
@@ -59,16 +50,15 @@ def fetch_all_products() -> pd.DataFrame:
                 JOIN vendasexport v ON vp.CodigoVenda = v.Codigo
                 ORDER BY vp.CodigoProduto, v.Data;
             """
-            cursor.execute(query)
-            products = pd.DataFrame(cursor.fetchall())
+            result = connection.execute(query)
+            products = pd.DataFrame(result.fetchall(), columns=result.keys())
             logger.info(f"Produtos buscados com sucesso. Total de produtos: {len(products)}")
             return products
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error(f"Erro ao buscar produtos: {e}")
         return pd.DataFrame()
     finally:
-        if connection is not None:
-            connection.close()
+        engine.dispose()
 
 def process_product_chunk(df: pd.DataFrame) -> int:
     promotions_identified = 0
@@ -125,7 +115,6 @@ def process_product_chunk(df: pd.DataFrame) -> int:
     return promotions_identified
 
 def organize_sales_by_product(products: pd.DataFrame) -> DataFrameGroupBy:
-    #Um baita problema, pois não posso agrupar por produto antes de processar
     logger.info("Organizando vendas por produto...")
     return products.groupby('CodigoProduto')
 
@@ -146,7 +135,7 @@ def process_chunks(products_df: pd.DataFrame):
 
 if __name__ == "__main__":
     products_df = fetch_all_products()
-    if not products_df.empty:  # Certifique-se de que esta linha esteja assim
+    if not products_df.empty:
         process_chunks(products_df)
     else:
         logger.info("Nenhum produto encontrado para processamento.")
