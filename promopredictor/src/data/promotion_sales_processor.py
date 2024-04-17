@@ -13,42 +13,28 @@ def calculate_sales_indicators_for_promotion(promo: Dict[str, Any]) -> Dict[str,
     if connection:
         try:
             with connection.cursor(dictionary=True) as cursor:
-                # Consulta para todas as vendas no período promocional
                 cursor.execute("""
                     SELECT 
-                        COUNT(*) AS TotalVendas,
-                        SUM(v.TotalPedido) AS ValorTotalVendas
-                    FROM vendasexport v
-                    WHERE v.Data BETWEEN %s AND %s
-                """, (promo['DataInicioPromocao'], promo['DataFimPromocao']))
-                all_sales = cursor.fetchone()
-                
-                # Consulta para vendas que envolvem o produto promovido
-                cursor.execute("""
-                    SELECT 
-                        COUNT(*) AS TotalVendasProduto,
-                        SUM(v.TotalPedido) AS ValorTotalVendasProduto
+                        SUM(vp.Quantidade) AS QuantidadeTotal, 
+                        SUM(v.TotalPedido) AS ValorTotalVendido
                     FROM vendasprodutosexport vp
                     JOIN vendasexport v ON vp.CodigoVenda = v.Codigo
                     WHERE vp.CodigoProduto = %s AND v.Data BETWEEN %s AND %s
                 """, (promo['CodigoProduto'], promo['DataInicioPromocao'], promo['DataFimPromocao']))
-                product_sales = cursor.fetchone()
-
-                if all_sales and product_sales:
+                result = cursor.fetchone()
+                if result:
                     indicators = {
                         "CodigoProduto": promo['CodigoProduto'],
                         "DataInicioPromocao": promo['DataInicioPromocao'],
                         "DataFimPromocao": promo['DataFimPromocao'],
-                        "TotalVendasPeriodo": all_sales['TotalVendas'],
-                        "ValorTotalVendasPeriodo": all_sales['ValorTotalVendas'],
-                        "TotalVendasProduto": product_sales['TotalVendasProduto'],
-                        "ValorTotalVendasProduto": product_sales['ValorTotalVendasProduto']
+                        "QuantidadeTotal": result.get("QuantidadeTotal", 0),
+                        "ValorTotalVendido": result.get("ValorTotalVendido", 0.0),
                     }
         except Exception as e:
             logger.error(f"Erro ao calcular indicadores de vendas: {e}")
         finally:
-            connection.close()
-
+            if connection:
+                connection.close()
     return indicators
 
 
