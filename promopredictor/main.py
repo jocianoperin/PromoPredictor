@@ -53,8 +53,8 @@ def configure_indexes():
 def clean_data():
     """Limpa os dados nas tabelas de vendas."""
     logger.info("Iniciando a limpeza de dados...")
-    delete_data("vendasprodutosexport", "ValorTotal <= 0 OR Quantidade <= 0")
-    delete_data("vendasexport", "TotalPedido <= 0")
+    #delete_data("vendasprodutosexport", "ValorTotal <= 0 OR Quantidade <= 0") - Substituído pelas função remove_invalid_records
+    #delete_data("vendasexport", "TotalPedido <= 0") - Substituído pelas função remove_invalid_records
     clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario"])
     logger.info("Limpeza de dados concluída com sucesso.")
 
@@ -66,12 +66,18 @@ def process_data():
     remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0"])
     standardize_formatting("vendasexport", {})  # Você pode adicionar regras de formatação aqui
     standardize_formatting("vendasprodutosexport", {})  # Você pode adicionar regras de formatação aqui
+    
+    #A partir daqui vamos ter problemas, o ideal é analisar outlier pelos valores unitários
     identify_and_treat_outliers("vendasexport")
     identify_and_treat_outliers("vendasprodutosexport")
-    convert_data_types("vendasexport", {})  # Você pode adicionar conversões de tipo aqui
-    convert_data_types("vendasprodutosexport", {})  # Você pode adicionar conversões de tipo aqui
-    explore_data("vendasexport")
-    explore_data("vendasprodutosexport")
+
+    #Por ora, não se faz necessário conversões, visto que o BD está com os mesmos padrões
+    #convert_data_types("vendasexport", {})  # Você pode adicionar conversões de tipo aqui
+    #convert_data_types("vendasprodutosexport", {})  # Você pode adicionar conversões de tipo aqui
+    
+    # Não pretendo explorar dados ainda
+    #explore_data("vendasexport")
+    #explore_data("vendasprodutosexport")
 
 def process_promotions():
     """Processa as promoções identificadas nos produtos."""
@@ -81,6 +87,7 @@ def process_promotions():
         process_chunks(products)
     else:
         logger.info("Nenhum produto para processar.")
+
     process_promotions_in_chunks()
     logger.info("Processamento de promoções concluído com sucesso.")
 

@@ -125,6 +125,7 @@ def process_product_chunk(df: pd.DataFrame) -> int:
     return promotions_identified
 
 def organize_sales_by_product(products: pd.DataFrame) -> DataFrameGroupBy:
+    #Um baita problema, pois não posso agrupar por produto antes de processar
     logger.info("Organizando vendas por produto...")
     return products.groupby('CodigoProduto')
 

@@ -19,7 +19,7 @@ def drop_tables():
                 
                 # Executando DROP TABLE para cada tabela
                 for table in tables_to_drop:
-                    cursor.execute(f"DROP TABLE IF EXISTS {table};")
+                    cursor.execute(f"TRUNCATE TABLE IF EXISTS {table};")
                     logger.info(f"Tabela {table} excluída com sucesso.")
                 
                 connection.commit()
