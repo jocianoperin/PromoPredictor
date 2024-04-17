@@ -17,14 +17,14 @@ def identify_and_treat_outliers(table_name):
             data = pd.read_sql_query(query, connection)
             
             # Identificar outliers usando o método dos quartis
-            Q1 = data['Quantidade'].quantile(0.25)
-            Q3 = data['Quantidade'].quantile(0.75)
+            Q1 = data['ValorUnitario'].quantile(0.25)
+            Q3 = data['ValorUnitario'].quantile(0.75)
             IQR = Q3 - Q1
             lower_bound = Q1 - 1.5 * IQR
             upper_bound = Q3 + 1.5 * IQR
             
             # Tratar outliers removendo-os do DataFrame
-            data = data.drop(data[(data['Quantidade'] > upper_bound) | (data['Quantidade'] < lower_bound)].index)
+            data = data.drop(data[(data['ValorUnitario'] > upper_bound) | (data['ValorUnitario'] < lower_bound)].index)
             
             # Atualizar a tabela com os dados tratados
             data.to_sql(table_name, connection, if_exists='replace', index=False)

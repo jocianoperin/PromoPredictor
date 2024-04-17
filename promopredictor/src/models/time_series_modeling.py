@@ -4,6 +4,12 @@ from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+from statsmodels.tsa.arima.model import ARIMA
+import pandas as pd
+from src.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 def train_arima_model(series: pd.Series, order=(1, 1, 1)):
     """
     Treina um modelo ARIMA para a série de preços fornecida.
@@ -15,16 +21,21 @@ def train_arima_model(series: pd.Series, order=(1, 1, 1)):
     Returns:
         ARIMA: Modelo ARIMA treinado, ou None se falhar.
     """
+    if len(series.dropna()) < 30:  # Requisito mínimo de pontos de dados
+        logger.error("Insuficiente quantidade de dados para treinar ARIMA: " + str(len(series.dropna())))
+        return None
+
     try:
-        # Certifique-se de que a série tem um índice de data com frequência especificada
+        # Definir frequência se não estiver presente
         if series.index.freq is None:
             series.index.freq = 'D'  # Supõe-se diário se não especificado
 
+        # Criação e treinamento do modelo ARIMA
         model = ARIMA(series.dropna(), order=order)
         model_fit = model.fit()
         return model_fit
     except Exception as e:
-        logger.error(f"Erro ao ajustar o modelo ARIMA: {e}")
+        logger.error(f"Erro ao ajustar o modelo ARIMA: {e}, Tamanho da Série: {len(series.dropna())}")
         return None
 
 def forecast_price(model, steps=1):
