@@ -9,6 +9,7 @@ from src.models.train_model import train_model
 from src.models.predict_model import make_prediction
 from src.services.database_reset import drop_tables
 
+
 logger = get_logger(__name__)
 
 def setup_database():
