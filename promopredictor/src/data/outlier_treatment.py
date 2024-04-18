@@ -1,7 +1,6 @@
 import pandas as pd
-from src.services.database_connection import get_db_connection
+from src.services.database import db_manager
 from src.utils.logging_config import get_logger
-from sqlalchemy.exc import SQLAlchemyError
 
 logger = get_logger(__name__)
 
@@ -11,10 +10,10 @@ def identify_and_treat_outliers(table_name):
     Args:
         table_name (str): Nome da tabela na qual os outliers serão identificados e tratados.
     """
-    engine = get_db_connection()  # Assume que get_db_connection retorna um engine SQLAlchemy.
     try:
         # Utiliza o engine do SQLAlchemy com pandas para ler a consulta SQL.
-        data = pd.read_sql_table(table_name, engine)
+        query = f"SELECT * FROM {table_name}"
+        data = pd.read_sql_query(query, db_manager.engine)
         
         # Identificar outliers usando o método dos quartis
         Q1 = data['ValorUnitario'].quantile(0.25)
@@ -24,12 +23,12 @@ def identify_and_treat_outliers(table_name):
         upper_bound = Q3 + 1.5 * IQR
         
         # Tratar outliers removendo-os do DataFrame
-        data = data.drop(data[(data['ValorUnitario'] > upper_bound) | (data['ValorUnitario'] < lower_bound)].index)
+        filtered_data = data[~((data['ValorUnitario'] > upper_bound) | (data['ValorUnitario'] < lower_bound))]
         
         # Atualizar a tabela com os dados tratados
-        data.to_sql(table_name, engine, if_exists='replace', index=False)
+        filtered_data.to_sql(table_name, db_manager.engine, if_exists='replace', index=False)
         logger.info(f"Outliers identificados e tratados na tabela '{table_name}'.")
-    except SQLAlchemyError as e:
+    except Exception as e:
         logger.error(f"Erro ao identificar e tratar outliers na tabela '{table_name}': {e}")
     finally:
-        engine.dispose()
+        db_manager.engine.dispose()

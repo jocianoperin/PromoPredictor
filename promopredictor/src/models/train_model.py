@@ -1,5 +1,5 @@
-from ..services.database_connection import get_db_connection 
-from ..utils.logging_config import get_logger
+from src.services.database import db_manager
+from src.utils.logging_config import get_logger
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
@@ -8,29 +8,20 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import joblib
 
+
 logger = get_logger(__name__)
 
 def fetch_data():
     """
-    Função para buscar dados da tabela 'promotions_identified'.
+    Função para buscar dados da tabela 'promotions_identified' para treinamento.
     """
-    query = """
-    SELECT p.*, IF(pi.id IS NULL, 0, 1) AS IsPromotion
-    FROM vendasprodutosexport p
-    LEFT JOIN promotions_identified pi ON p.CodigoProduto = pi.CodigoProduto
-    """
-    connection = get_db_connection()
-    try:
-        df = pd.read_sql_query(query, connection)
-        logger.info("Dados carregados com sucesso.")
-        return df
-    except Exception as e:
-        logger.error(f"Erro ao buscar dados: {e}")
-        return pd.DataFrame()
+    query = "SELECT * FROM promotions_identified"
+    data = db_manager.execute_query(query)
+    return pd.DataFrame(data)
 
 def preprocess_data(df):
     """
-    Preprocessa os dados: tratamento de valores nulos e normalização.
+    Preprocessa os dados para o modelo: tratamento de valores nulos e normalização.
     """
     # Substituindo valores nulos pela média da coluna
     df.fillna(df.mean(), inplace=True)
@@ -43,13 +34,15 @@ def preprocess_data(df):
     return df
 
 def train_model():
+    """
+    Treina um modelo RandomForest para classificar promoções.
+    """
     df = fetch_data()
     if df.empty:
         logger.error("DataFrame está vazio. Treinamento abortado.")
         return
 
     df = preprocess_data(df)
-
     X = df.drop('IsPromotion', axis=1)
     y = df['IsPromotion']
 
@@ -60,12 +53,11 @@ def train_model():
         ('scaler', StandardScaler()),
         ('classifier', RandomForestClassifier(random_state=42))
     ])
-
     pipeline.fit(X_train, y_train)
 
     # Avaliação
     predictions = pipeline.predict(X_test)
-    logger.info("\n", classification_report(y_test, predictions))
+    logger.info("\n" + classification_report(y_test, predictions))
 
     # Salvar o modelo treinado
     joblib.dump(pipeline, 'trained_model.pkl')

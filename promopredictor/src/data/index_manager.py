@@ -1,20 +1,19 @@
-from src.services.database_connection import get_db_connection
+from src.services.database import db_manager
 from src.utils.logging_config import get_logger
-from sqlalchemy.exc import SQLAlchemyError
 
 logger = get_logger(__name__)
 
-def create_indexes(indexes_info):
-    engine = get_db_connection()  # Assume que get_db_connection retorna um engine SQLAlchemy.
-    for index_name, table_name, columns in indexes_info:
-        try:
-            with engine.connect() as connection:
-                # Tentativa de criação do índice, diretamente, pois é uma operação segura e idempotente
-                connection.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({columns});")
-                connection.commit()
-                logger.debug(f"Tentativa de criação do índice '{index_name}' em '{table_name}'.")
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao criar índice '{index_name}' em '{table_name}': {e}")
-        finally:
-            engine.dispose()
-    logger.info("Processo de criação de índices concluído.")
+def create_indexes(indexes):
+    """
+    Cria índices nas tabelas e colunas especificadas.
+    Args:
+        indexes (list of tuples): Lista de tuplas contendo o nome do índice, nome da tabela e colunas.
+    """
+    try:
+        for index_name, table_name, columns in indexes:
+            columns_str = ', '.join(columns.split(', '))
+            create_index_query = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({columns_str})"
+            db_manager.execute_query(create_index_query)
+        logger.info("Processo de criação de índices concluído.")
+    except Exception as e:
+        logger.error(f"Erro ao criar índices: {e}")

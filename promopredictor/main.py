@@ -1,21 +1,23 @@
-# main.py na raiz do projeto
 from src.data.create_tables import create_table_if_not_exists
 from src.data.data_cleaner import delete_data, update_data, clean_null_values, remove_duplicates, remove_invalid_records, standardize_formatting
 from src.data.index_manager import create_indexes
 from src.data.promotion_processor import fetch_all_products, process_chunks
 from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
-from src.models.train_model import train_model
-from src.models.predict_model import make_prediction
 from src.services.database_reset import drop_tables
 from src.data.outlier_treatment import identify_and_treat_outliers
 from src.data.data_conversion import convert_data_types
 from src.data.data_exploration import explore_data
+from src.models.train_model import train_model
+from src.models.predict_model import make_prediction
+from src.services.database import db_manager
 
 logger = get_logger(__name__)
 
 def setup_database():
-    """Limpa, cria tabelas e índices no banco de dados, se necessário."""
+    """
+    Limpa, cria tabelas e índices no banco de dados, se necessário.
+    """
     logger.info("Iniciando a limpeza do banco de dados...")
     drop_tables()
     logger.info("Banco de dados limpo com sucesso.")
@@ -28,7 +30,9 @@ def setup_database():
     logger.info("Índices criados/atualizados com sucesso.")
 
 def configure_indexes():
-    """Configura os índices nas tabelas de vendas."""
+    """
+    Configura os índices nas tabelas de vendas.
+    """
     indexes_vendasexport = [
         ("idx_codigo", "vendasexport", "Codigo"),
         ("idx_data", "vendasexport", "Data"),
@@ -50,49 +54,37 @@ def configure_indexes():
     ]
     create_indexes(indexes_vendasprodutosexport + indexes_vendasexport)
 
-def clean_data():
-    """Limpa os dados nas tabelas de vendas."""
-    logger.info("Iniciando a limpeza de dados...")
-    #delete_data("vendasprodutosexport", "ValorTotal <= 0 OR Quantidade <= 0") - Substituído pelas função remove_invalid_records
-    #delete_data("vendasexport", "TotalPedido <= 0") - Substituído pelas função remove_invalid_records
-    clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario"])
-    logger.info("Limpeza de dados concluída com sucesso.")
-
-def process_data():
-    """Processa os dados para remoção de duplicados, registros inválidos, tratamento de outliers e conversão de tipos."""
-    remove_duplicates("vendasexport")
-    remove_duplicates("vendasprodutosexport")
+def clean_and_process_data():
+    """
+    Limpa e processa os dados nas tabelas de vendas, removendo registros inválidos, duplicados e padronizando formatações.
+    """
+    logger.info("Iniciando a limpeza e processamento dos dados...")
     remove_invalid_records("vendasexport", ["TotalPedido <= 0"])
     remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0"])
-    standardize_formatting("vendasexport", {})  # Você pode adicionar regras de formatação aqui
-    standardize_formatting("vendasprodutosexport", {})  # Você pode adicionar regras de formatação aqui
-    
-    #A partir daqui vamos ter problemas, o ideal é analisar outlier pelos valores unitários
+    clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario"])
+    remove_duplicates("vendasexport")
+    remove_duplicates("vendasprodutosexport")
     identify_and_treat_outliers("vendasexport")
     identify_and_treat_outliers("vendasprodutosexport")
-
-    #Por ora, não se faz necessário conversões, visto que o BD está com os mesmos padrões
-    #convert_data_types("vendasexport", {})  # Você pode adicionar conversões de tipo aqui
-    #convert_data_types("vendasprodutosexport", {})  # Você pode adicionar conversões de tipo aqui
-    
-    # Não pretendo explorar dados ainda
-    #explore_data("vendasexport")
-    #explore_data("vendasprodutosexport")
+    logger.info("Limpeza e processamento de dados concluídos com sucesso.")
 
 def process_promotions():
-    """Processa as promoções identificadas nos produtos."""
+    """
+    Processa as promoções identificadas nos produtos.
+    """
     logger.info("Iniciando o processamento de promoções...")
     products = fetch_all_products()
     if not products.empty:
         process_chunks(products)
     else:
         logger.info("Nenhum produto para processar.")
-
     process_promotions_in_chunks()
     logger.info("Processamento de promoções concluído com sucesso.")
 
 def train_and_test_model():
-    """Treina o modelo de machine learning e realiza uma predição de teste."""
+    """
+    Treina o modelo de machine learning e realiza uma predição de teste.
+    """
     logger.info("Iniciando o treinamento do modelo...")
     train_model()
     logger.info("Treinamento concluído com sucesso.")
@@ -102,11 +94,13 @@ def train_and_test_model():
     logger.info("Predição de teste concluída.")
 
 def main():
+    """
+    Função principal que organiza a sequência de operações para inicialização do projeto.
+    """
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
         setup_database()
-        clean_data()
-        process_data()
+        clean_and_process_data()
         process_promotions()
         train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
