@@ -111,14 +111,15 @@ def get_primary_key_columns(table_name):
     Returns:
         list: Lista com os nomes das colunas que compõem a chave primária.
     """
-    logger.info(f"Tentando obter chaves primárias da tabela {table_name}")
+    logger.info(f"Obtendo chaves primárias da tabela {table_name}")
+
     query = f"SHOW KEYS FROM {table_name} WHERE Key_name = 'PRIMARY'"
     try:
         result = db_manager.execute_query(query)
-        if result is None or len(result) == 0:
-            logger.error(f"Erro ao obter chaves primárias para a tabela {table_name} ou nenhuma chave primária encontrada.")
+        if not result:
+            logger.error(f"Nenhuma chave primária encontrada para a tabela {table_name}.")
             return []
-        primary_key_columns = [row[4] for row in result]  # Ajustar o índice conforme a estrutura real do resultado.
+        primary_key_columns = [row[4] for row in result]
         return primary_key_columns
     except Exception as e:
         logger.error(f"Erro ao processar chaves primárias para a tabela {table_name}: {e}")
@@ -132,12 +133,13 @@ def get_all_columns(table_name):
     Returns:
         list: Lista com os nomes de todas as colunas da tabela.
     """
-    logger.info(f"Tentando obter todas as colunas da tabela {table_name}")
+    logger.info(f"Obtendo todas as colunas da tabela {table_name}")
+    
     query = f"DESCRIBE {table_name}"
     try:
         result = db_manager.execute_query(query)
-        if result is None or len(result) == 0:
-            logger.error(f"Erro ao descrever a tabela {table_name} ou nenhuma coluna encontrada.")
+        if not result:
+            logger.error(f"Nenhuma coluna encontrada para a tabela {table_name}.")
             return []
         column_names = [row[0] for row in result]
         return column_names

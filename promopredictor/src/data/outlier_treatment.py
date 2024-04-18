@@ -13,8 +13,7 @@ def identify_and_treat_outliers(table_name):
     try:
         # Utiliza o execute_query para obter os dados
         query = f"SELECT * FROM {table_name}"
-        result = db_manager.execute_query(query)
-        data = pd.DataFrame(result, columns=[col[0] for col in result.description])
+        data = pd.read_sql_query(query, db_manager.engine)  # Alterado para usar diretamente pd.read_sql_query
         
         # Identificar e tratar outliers
         Q1 = data['ValorUnitario'].quantile(0.25)

@@ -34,14 +34,15 @@ class DatabaseManager:
             }
 
     def execute_query(self, query, params=None):
-        """Executa uma consulta SQL no banco de dados configurado.
+        """
+        Executa uma consulta SQL no banco de dados configurado.
 
         Args:
             query (str): Consulta SQL a ser executada.
             params (dict, optional): Parâmetros para a consulta SQL.
 
         Returns:
-            Retorna o número de linhas afetadas ou os resultados da consulta, dependendo do tipo de consulta.
+            Retorna os resultados da consulta para consultas SELECT ou o número de linhas afetadas para outras consultas.
         """
         with lock:
             if self.use_sqlalchemy:
@@ -49,23 +50,37 @@ class DatabaseManager:
                 try:
                     with session.begin():
                         result = session.execute(text(query), params)
-                        return result.rowcount if not query.strip().lower().startswith('select') else result.fetchall()
+                        if query.strip().lower().startswith('select'):
+                            # Para SELECT, retorna uma lista de tuplas
+                            data = [row for row in result.fetchall()]
+                            logger.info(f"Query SELECT retornou {len(data)} linhas.")
+                            return data
+                        else:
+                            # Para non-SELECT, retorna o número de linhas afetadas
+                            rows_affected = result.rowcount
+                            logger.info(f"Query non-SELECT afetou {rows_affected} linhas. Veja: {result}.")
+                            return rows_affected
                 except SQLAlchemyError as e:
                     logger.error(f"Erro ao executar query com SQLAlchemy: {e}")
                     session.rollback()
                 finally:
                     session.close()
             else:
-                connection = connect(**self.connection_params)
-                cursor = connection.cursor(buffered=True)  # Adicione buffered=True aqui
+                connection = connect(**self.connection_params, buffered=True)
+                cursor = connection.cursor()
                 try:
                     cursor.execute(query, params)
                     if query.strip().lower().startswith("select"):
-                        result = cursor.fetchall()
+                        # Para SELECT, retorna uma lista de tuplas
+                        data = cursor.fetchall()
+                        logger.info(f"Query SELECT retornou {len(data)} linhas.")
+                        return data
                     else:
+                        # Para non-SELECT, confirma a transação e retorna o número de linhas afetadas
+                        rows_affected = cursor.rowcount
                         connection.commit()
-                        result = cursor.rowcount
-                    return result
+                        logger.info(f"Query non-SELECT afetou {rows_affected} linhas. Veja: {result}.")
+                        return rows_affected
                 except MySQLError as e:
                     logger.error(f"Erro ao executar query com MySQL Connector: {e}")
                     connection.rollback()
