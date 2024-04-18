@@ -10,8 +10,14 @@ def drop_tables():  # Adicione db_manager como argumento
     try:
         db_manager.execute_query("DROP TABLE IF EXISTS sales_indicators")
         logger.info("Tabela sales_indicators excluída com sucesso.")
+
         db_manager.execute_query("DROP TABLE IF EXISTS promotions_identified")
         logger.info("Tabela promotions_identified excluída com sucesso.")
-        # Adicione outras tabelas que precisam ser excluídas aqui
+
+        db_manager.execute_query("DROP TABLE IF EXISTS vendasexport")
+        logger.info("Tabela vendasexport excluída com sucesso.")
+        
+        db_manager.execute_query("DROP TABLE IF EXISTS vendasprodutosexport")
+        logger.info("Tabela vendasprodutosexport excluída com sucesso.")
     except Exception as e:
         logger.error(f"Erro ao excluir tabelas: {e}")

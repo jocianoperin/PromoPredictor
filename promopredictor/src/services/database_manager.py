@@ -57,7 +57,7 @@ class DatabaseManager:
                     session.close()
             else:
                 connection = connect(**self.connection_params)
-                cursor = connection.cursor()
+                cursor = connection.cursor(buffered=True)  # Adicione buffered=True aqui
                 try:
                     cursor.execute(query, params)
                     if query.strip().lower().startswith("select"):

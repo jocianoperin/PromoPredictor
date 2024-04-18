@@ -61,11 +61,15 @@ def clean_and_process_data():
     logger.info("Iniciando a limpeza e processamento dos dados...")
     remove_invalid_records("vendasexport", ["TotalPedido <= 0"])
     remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0"])
+
     clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario"])
+
     remove_duplicates("vendasexport")
     remove_duplicates("vendasprodutosexport")
+
     identify_and_treat_outliers("vendasexport")
     identify_and_treat_outliers("vendasprodutosexport")
+
     logger.info("Limpeza e processamento de dados concluídos com sucesso.")
 
 def process_promotions():
@@ -99,9 +103,14 @@ def main():
     """
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
+
         setup_database()
+
         clean_and_process_data()
+
         process_promotions()
+        logger.info("process_promotions")
+
         train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
