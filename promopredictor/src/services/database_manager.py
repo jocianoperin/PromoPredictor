@@ -25,6 +25,7 @@ class DatabaseManager:
             self.connection_string = "mysql+mysqlconnector://root:1@localhost/atena"
             self.engine = create_engine(self.connection_string, echo=False)
             self.Session = sessionmaker(bind=self.engine)
+            self.placeholder = ":{}"  # Placeholder para estilo SQLAlchemy
         else:
             self.connection_params = {
                 'host': 'localhost',
@@ -32,6 +33,7 @@ class DatabaseManager:
                 'password': '1',
                 'database': 'atena'
             }
+            self.placeholder = "%s"   # Placeholder para estilo MySQL Connector
 
     def execute_query(self, query, params=None):
         """
@@ -51,15 +53,11 @@ class DatabaseManager:
                     with session.begin():
                         result = session.execute(text(query), params)
                         if query.strip().lower().startswith('select'):
-                            # Para SELECT, retorna uma lista de tuplas
                             data = [row for row in result.fetchall()]
-                            logger.info(f"Query SELECT retornou {len(data)} linhas.")
-                            return data
+                            columns = result.keys()
+                            return {'data': data, 'columns': columns}
                         else:
-                            # Para non-SELECT, retorna o número de linhas afetadas
-                            rows_affected = result.rowcount
-                            logger.info(f"Query non-SELECT afetou {rows_affected} linhas. Veja: {result}.")
-                            return rows_affected
+                            return {'rows_affected': result.rowcount}
                 except SQLAlchemyError as e:
                     logger.error(f"Erro ao executar query com SQLAlchemy: {e}")
                     session.rollback()
@@ -71,16 +69,12 @@ class DatabaseManager:
                 try:
                     cursor.execute(query, params)
                     if query.strip().lower().startswith("select"):
-                        # Para SELECT, retorna uma lista de tuplas
                         data = cursor.fetchall()
-                        logger.info(f"Query SELECT retornou {len(data)} linhas.")
-                        return data
+                        columns = cursor.column_names
+                        return {'data': data, 'columns': columns}
                     else:
-                        # Para non-SELECT, confirma a transação e retorna o número de linhas afetadas
-                        rows_affected = cursor.rowcount
                         connection.commit()
-                        logger.info(f"Query non-SELECT afetou {rows_affected} linhas. Veja: {result}.")
-                        return rows_affected
+                        return {'rows_affected': cursor.rowcount}
                 except MySQLError as e:
                     logger.error(f"Erro ao executar query com MySQL Connector: {e}")
                     connection.rollback()

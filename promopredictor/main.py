@@ -65,12 +65,12 @@ def clean_and_process_data():
     #clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
     #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
 
-    remove_duplicates("vendasexport")
-    remove_duplicates("vendasprodutosexport")
+    #remove_duplicates("vendasexport")
+    #remove_duplicates("vendasprodutosexport")
 
-    identify_and_treat_outliers("vendasexport")
-    identify_and_treat_outliers("vendasprodutosexport")
-
+    # Analisar possíveis outliers da vendasexport
+    identify_and_treat_outliers("vendasprodutosexport", "ValorCusto,ValorUnitario")
+    
     logger.info("Limpeza e processamento de dados concluídos com sucesso.")
 
 def process_promotions():
@@ -109,10 +109,10 @@ def main():
 
         clean_and_process_data()
 
-        process_promotions()
+        #process_promotions()
         logger.info("process_promotions")
 
-        train_and_test_model()
+        #train_and_test_model()
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
         logger.error(f"Erro durante o processo de inicialização do projeto: {e}")

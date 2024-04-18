@@ -41,48 +41,42 @@ def clean_null_values(table_name, columns):
 
 def remove_duplicates(table_name):
     """
-    Remove registros duplicados de uma tabela. Utiliza chaves primárias para identificar duplicatas, caso disponíveis.
-    Caso contrário, usa todas as colunas da tabela.
+    Remove registros duplicados de uma tabela, considerando todas as colunas exceto a chave primária.
+    Se duas linhas têm os mesmos valores para todas as colunas, exceto a chave primária, uma delas será removida.
 
     Args:
         table_name (str): Nome da tabela da qual os registros duplicados serão removidos.
     """
     primary_key_columns = get_primary_key_columns(table_name)
+    all_columns = get_all_columns(table_name)
+    
+    if not all_columns:
+        logger.error(f"Nenhuma coluna encontrada para a tabela {table_name}. Impossível remover duplicatas.")
+        return
+
     if primary_key_columns:
-        primary_key_clause = ', '.join(primary_key_columns)
-        if not primary_key_clause:  # Se a cláusula de chaves primárias estiver vazia, evita executar uma query malformada
-            logger.error(f"Erro ao formar cláusula de chave primária para a tabela {table_name}.")
-            return
-        query = f"""
-            DELETE FROM {table_name}
-            WHERE ({primary_key_clause}) NOT IN (
-                SELECT {primary_key_clause}
-                FROM (
-                    SELECT {primary_key_clause}, ROW_NUMBER() OVER (PARTITION BY {primary_key_clause} ORDER BY {primary_key_clause}) AS row_num
-                    FROM {table_name}
-                ) AS deduped
-                WHERE row_num = 1
-            );
-        """
+        non_pk_columns = [col for col in all_columns if col not in primary_key_columns]
     else:
         logger.info(f"Nenhuma chave primária encontrada, usando todas as colunas para a tabela {table_name}.")
-        all_columns = get_all_columns(table_name)
-        if not all_columns:  # Se não houver colunas, evita executar uma query malformada
-            logger.error(f"Nenhuma coluna encontrada para a tabela {table_name}. Impossível remover duplicatas.")
-            return
-        columns_clause = ', '.join(all_columns)
-        query = f"""
-            DELETE FROM {table_name}
-            WHERE ({columns_clause}) NOT IN (
-                SELECT {columns_clause}
-                FROM (
-                    SELECT {columns_clause}, ROW_NUMBER() OVER (PARTITION BY {columns_clause} ORDER BY {columns_clause}) AS row_num
-                    FROM {table_name}
-                ) AS deduped
-                WHERE row_num = 1
-            );
-        """
+        non_pk_columns = all_columns
 
+    if not non_pk_columns:
+        logger.error(f"Todas as colunas são chaves primárias, não existem colunas não primárias para verificar duplicatas.")
+        return
+
+    non_pk_clause = ', '.join(non_pk_columns)
+
+    # Usando ROW_NUMBER para identificar e manter apenas uma linha de cada grupo de duplicatas
+    query = f"""
+        DELETE t1 FROM {table_name} t1
+        JOIN (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY {non_pk_clause} ORDER BY {non_pk_clause}) as row_num
+            FROM {table_name}
+        ) t2 ON t1.{primary_key_columns[0]} = t2.{primary_key_columns[0]}
+        WHERE t2.row_num > 1;
+    """
+
+    logger.debug(f"A query a ser executada é: {query}")
     # Executando a query e logando o resultado
     try:
         success = db_manager.execute_query(query)
@@ -113,13 +107,14 @@ def get_primary_key_columns(table_name):
     """
     logger.info(f"Obtendo chaves primárias da tabela {table_name}")
 
-    query = f"SHOW KEYS FROM {table_name} WHERE Key_name = 'PRIMARY'"
+    query = f"SELECT column_name FROM information_schema.key_column_usage WHERE table_name = '{table_name}' AND constraint_name = 'PRIMARY'"
+    
     try:
         result = db_manager.execute_query(query)
         if not result:
             logger.error(f"Nenhuma chave primária encontrada para a tabela {table_name}.")
             return []
-        primary_key_columns = [row[4] for row in result]
+        primary_key_columns = [row[0] for row in result]
         return primary_key_columns
     except Exception as e:
         logger.error(f"Erro ao processar chaves primárias para a tabela {table_name}: {e}")
@@ -135,7 +130,7 @@ def get_all_columns(table_name):
     """
     logger.info(f"Obtendo todas as colunas da tabela {table_name}")
     
-    query = f"DESCRIBE {table_name}"
+    query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'"
     try:
         result = db_manager.execute_query(query)
         if not result:
