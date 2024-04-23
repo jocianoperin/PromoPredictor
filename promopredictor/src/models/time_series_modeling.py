@@ -4,12 +4,6 @@ from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-from statsmodels.tsa.arima.model import ARIMA
-import pandas as pd
-from src.utils.logging_config import get_logger
-
-logger = get_logger(__name__)
-
 def train_arima_model(series: pd.Series, order=(1, 1, 1)):
     """
     Treina um modelo ARIMA para a série de preços fornecida.
@@ -58,3 +52,22 @@ def forecast_price(model, steps=1):
     except Exception as e:
         logger.error(f"Erro ao fazer previsão com ARIMA: {e}")
         return None
+
+def fill_missing_values(series: pd.Series, method='linear'):
+    """
+    Preenche os valores ausentes (NaN) na série temporal usando um método de interpolação.
+
+    Args:
+        series (pd.Series): Série temporal com valores ausentes.
+        method (str): Método de interpolação a ser utilizado. Opções: 'linear', 'time', 'index', 'values', etc.
+
+    Returns:
+        pd.Series: Série temporal com os valores ausentes preenchidos.
+    """
+    try:
+        filled_series = series.interpolate(method=method)
+        logger.info(f"Valores ausentes preenchidos usando o método '{method}'.")
+        return filled_series
+    except Exception as e:
+        logger.error(f"Erro ao preencher valores ausentes: {e}")
+        return series

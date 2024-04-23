@@ -1,6 +1,6 @@
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
-from src.models.time_series_modeling import train_arima_model, forecast_price
+from src.models.time_series_modeling import train_arima_model, forecast_price, fill_missing_values
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from pandas.core.groupby import DataFrameGroupBy
@@ -73,6 +73,9 @@ def process_product_chunk(df: pd.DataFrame) -> int:
         # Cria a série temporal de preços para modelagem
         price_series = df.set_index('Data')['ValorUnitario']
 
+        # Preenche os valores ausentes na série temporal
+        price_series = fill_missing_values(price_series)
+
         # Treina o modelo ARIMA
         model_fit = train_arima_model(price_series)
 
@@ -140,7 +143,7 @@ def process_chunks(products_df: pd.DataFrame):
     
     product_sales = organize_sales_by_product(products_df)
     total_promotions_identified = 0
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(process_product_chunk, group.copy()): code for code, group in product_sales}
         for future in as_completed(futures):
             total_promotions_identified += future.result()
