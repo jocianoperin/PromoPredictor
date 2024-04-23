@@ -1,3 +1,4 @@
+from src.data.promotion_processor import insert_forecast
 from statsmodels.tsa.arima.model import ARIMA
 import pandas as pd
 from src.utils.logging_config import get_logger
@@ -27,26 +28,29 @@ def train_arima_model(series: pd.Series, order=(1, 1, 1)):
         # Criação e treinamento do modelo ARIMA
         model = ARIMA(series.dropna(), order=order)
         model_fit = model.fit()
+        logger.info(f"Modelo ARIMA treinado com sucesso. Ordem: {order}, Tamanho da Série: {len(series.dropna())}, AIC: {model_fit.aic}, BIC: {model_fit.bic}")
         return model_fit
     except Exception as e:
         logger.error(f"Erro ao ajustar o modelo ARIMA: {e}, Tamanho da Série: {len(series.dropna())}")
         return None
 
-def forecast_price(model, steps=1):
+def forecast_price(model, row: pd.Series, steps=1):
     """
     Realiza uma previsão de preço usando o modelo ARIMA fornecido.
-    
     Args:
         model (ARIMA): Modelo ARIMA treinado.
+        row (pd.Series): Linha do DataFrame contendo os dados do produto.
         steps (int): Número de passos à frente para prever.
-        
     Returns:
         float: Preço previsto, ou None se falhar.
     """
     try:
         if model is not None:
             forecast = model.forecast(steps=steps)
-            return forecast.iloc[0]
+            predicted_price = forecast.iloc[0]
+            insert_forecast(row['CodigoProduto'], row['Data'], row['ValorUnitario'], predicted_price, None)
+            logger.info(f"Preço previsto (ARIMA): {predicted_price}")
+            return predicted_price
         else:
             return None
     except Exception as e:

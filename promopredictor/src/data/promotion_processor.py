@@ -1,11 +1,15 @@
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 from src.models.time_series_modeling import train_arima_model, forecast_price, fill_missing_values
+from src.models.rnn_modeling import train_rnn_model, forecast_price as forecast_rnn
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from pandas.core.groupby import DataFrameGroupBy
 
 logger = get_logger(__name__)
+
+# Configuração para escolher o modelo (ARIMA ou RNN)
+MODEL_TYPE = 'arima'  # Ou 'rnn'
 
 def insert_promotion(promo: dict):
     """
@@ -77,7 +81,14 @@ def process_product_chunk(df: pd.DataFrame) -> int:
         price_series = fill_missing_values(price_series)
 
         # Treina o modelo ARIMA
-        model_fit = train_arima_model(price_series)
+        # Treina o modelo escolhido (ARIMA ou RNN)
+        if MODEL_TYPE == 'arima':
+            model_fit = train_arima_model(price_series)
+        elif MODEL_TYPE == 'rnn':
+            model_fit = train_rnn_model(price_series)
+        else:
+            logger.error(f"Tipo de modelo inválido: {MODEL_TYPE}")
+            return promotions_identified
 
         # Se o modelo ARIMA falhar, a função train_arima_model deve retornar None
         if model_fit is None:
@@ -148,6 +159,30 @@ def process_chunks(products_df: pd.DataFrame):
         for future in as_completed(futures):
             total_promotions_identified += future.result()
     logger.info(f"Total de promoções identificadas: {total_promotions_identified}")
+
+def insert_forecast(product_code, date, actual_price, arima_forecast, rnn_forecast):
+   """
+   Insere uma previsão de preço no banco de dados.
+   Args:
+       product_code (int): Código do produto.
+       date (datetime.date): Data da previsão.
+       actual_price (float): Valor real do produto.
+       arima_forecast (float): Previsão do modelo ARIMA.
+       rnn_forecast (float): Previsão do modelo RNN.
+   """
+   try:
+       query = """
+           INSERT INTO price_forecasts (CodigoProduto, Data, ValorUnitario, PrevisaoARIMA, PrevisaoRNN)
+           VALUES (%s, %s, %s, %s, %s)
+           ON DUPLICATE KEY UPDATE
+               ValorUnitario = VALUES(ValorUnitario),
+               PrevisaoARIMA = VALUES(PrevisaoARIMA),
+               PrevisaoRNN = VALUES(PrevisaoRNN);
+       """
+       values = (product_code, date, actual_price, arima_forecast, rnn_forecast)
+       db_manager.execute_query(query, values)
+   except Exception as e:
+       logger.error(f"Erro ao inserir previsão no banco de dados: {e}")
 
 if __name__ == "__main__":
     products_df = fetch_all_products()

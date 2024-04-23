@@ -96,6 +96,21 @@ def create_table_if_not_exists():
         """)
         tables_created.append("sales_indicators")
 
+        # Criando a tabela price_forecasts
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS price_forecasts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                CodigoProduto INT NOT NULL,
+                Data DATE NOT NULL,
+                ValorUnitario DECIMAL(10, 2) NOT NULL,
+                PrevisaoARIMA DECIMAL(10, 2),
+                PrevisaoRNN DECIMAL(10, 2),
+                UNIQUE KEY unique_forecast (CodigoProduto, Data)
+            );
+        """)
+        tables_created.append("price_forecasts")
+
+
         logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
 
     except Exception as e:
