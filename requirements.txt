@@ -11,4 +11,5 @@ joblib
 pmdarima
 statsmodels
 keras
+tensorflow
 threadpoolctl

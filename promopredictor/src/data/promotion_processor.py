@@ -160,30 +160,6 @@ def process_chunks(products_df: pd.DataFrame):
             total_promotions_identified += future.result()
     logger.info(f"Total de promoções identificadas: {total_promotions_identified}")
 
-def insert_forecast(product_code, date, actual_price, arima_forecast, rnn_forecast):
-   """
-   Insere uma previsão de preço no banco de dados.
-   Args:
-       product_code (int): Código do produto.
-       date (datetime.date): Data da previsão.
-       actual_price (float): Valor real do produto.
-       arima_forecast (float): Previsão do modelo ARIMA.
-       rnn_forecast (float): Previsão do modelo RNN.
-   """
-   try:
-       query = """
-           INSERT INTO price_forecasts (CodigoProduto, Data, ValorUnitario, PrevisaoARIMA, PrevisaoRNN)
-           VALUES (%s, %s, %s, %s, %s)
-           ON DUPLICATE KEY UPDATE
-               ValorUnitario = VALUES(ValorUnitario),
-               PrevisaoARIMA = VALUES(PrevisaoARIMA),
-               PrevisaoRNN = VALUES(PrevisaoRNN);
-       """
-       values = (product_code, date, actual_price, arima_forecast, rnn_forecast)
-       db_manager.execute_query(query, values)
-   except Exception as e:
-       logger.error(f"Erro ao inserir previsão no banco de dados: {e}")
-
 if __name__ == "__main__":
     products_df = fetch_all_products()
     if not products_df.empty:

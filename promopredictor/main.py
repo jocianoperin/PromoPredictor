@@ -59,14 +59,14 @@ def clean_and_process_data():
     Limpa e processa os dados nas tabelas de vendas, removendo registros inválidos, duplicados e padronizando formatações.
     """
     logger.info("Iniciando a limpeza e processamento dos dados...")
-    #remove_invalid_records("vendasexport", ["TotalPedido <= 0"])
-    #remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0"])
+    remove_invalid_records("vendasexport", ["TotalPedido <= 0"])
+    remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0"])
 
-    #clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
-    #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
+    clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
+    clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
 
-    #remove_duplicates("vendasexport")
-    #remove_duplicates("vendasprodutosexport")
+    remove_duplicates("vendasexport")
+    remove_duplicates("vendasprodutosexport")
 
     # Analisar possíveis outliers da vendasexport
     identify_and_treat_outliers("vendasprodutosexport", "ValorCusto,ValorUnitario")
@@ -105,11 +105,11 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        #setup_database()
+        setup_database()
 
         clean_and_process_data()
 
-        #process_promotions()
+        process_promotions()
         logger.info("process_promotions")
 
         #train_and_test_model()

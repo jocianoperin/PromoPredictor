@@ -1,4 +1,4 @@
-from src.data.promotion_processor import insert_forecast
+from src.data.promotion_processor_commom import insert_forecast
 import numpy as np
 import pandas as pd
 from keras._tf_keras.keras.models import Sequential

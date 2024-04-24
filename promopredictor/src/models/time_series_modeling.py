@@ -1,4 +1,4 @@
-from src.data.promotion_processor import insert_forecast
+from src.data.promotion_processor_commom import insert_forecast
 from statsmodels.tsa.arima.model import ARIMA
 import pandas as pd
 from src.utils.logging_config import get_logger
