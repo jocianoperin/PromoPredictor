@@ -8,7 +8,7 @@ from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def processa_column(product_id, table, product_column, date_column, value_column):
+def process_column(product_id, table, product_column, date_column, value_column):
     """
     Processa uma coluna específica para imputação de valores nulos usando o modelo ARIMA.
     Args:
@@ -39,8 +39,45 @@ def imput_null_values(table, product_column, date_column, value_columns):
         date_column (str): Nome da coluna da data.
         value_columns (list): Lista de colunas para as quais os valores nulos serão imputados.
     """
-    product_ids = db_manager.get_product_ids_with_nulls(table, product_column, value_columns)
+    product_ids = get_product_ids_with_nulls('vendasprodutosexport', 'CodigoProduto', 'Data', ['ValorCusto', 'ValorUnitario'])
     with ThreadPoolExecutor(max_workers=4) as executor:
         for product_id in product_ids:
             for value_column in value_columns:
-                executor.submit(processa_column, product_id, table, product_column, date_column, value_column)
+                executor.submit(process_column, product_id, table, product_column, date_column, value_column)
+
+def get_product_ids_with_nulls(table, product_column, date_column, value_columns):
+    """
+    Recupera os IDs de produtos que possuem valores nulos em qualquer das colunas especificadas,
+    fazendo um join com a tabela 'vendasexport' para acessar a coluna 'Data'.
+    Args:
+        table (str): Nome da tabela principal onde os produtos são listados (e.g., 'vendasprodutosexport').
+        product_column (str): Nome da coluna que identifica o produto (e.g., 'CodigoProduto').
+        date_column (str): Nome da coluna que identifica a data na tabela 'vendasexport'.
+        value_columns (list of str): Colunas a verificar por valores nulos.
+    Returns:
+        list: Lista de IDs de produtos com valores nulos.
+    """
+    # Criar a condição SQL para verificar valores nulos nas colunas especificadas
+    value_columns_condition = ' OR '.join([f"{table}.{col} IS NULL" for col in value_columns])
+    # Construir a consulta SQL com o join necessário
+    query = f"""
+    SELECT DISTINCT {table}.{product_column}
+    FROM {table}
+    JOIN vendasexport ON {table}.CodigoVenda = vendasexport.Codigo
+    WHERE {value_columns_condition} OR vendasexport.{date_column} IS NULL;
+    """
+    
+    try:
+        # Executar a consulta e coletar os resultados
+        result = db_manager.execute_query(query)
+        if result and 'data' in result:
+            product_ids = [row[0] for row in result['data']]
+            logger.info(f"IDs de produtos com valores nulos recuperados com sucesso na tabela {table}.")
+            return product_ids
+        else:
+            logger.warning("Consulta bem-sucedida, mas nenhum dado encontrado.")
+            return []
+    except Exception as e:
+        # Registrar erro, se ocorrer
+        logger.error(f"Erro ao recuperar IDs de produtos com valores nulos na tabela {table}: {e}")
+        return []

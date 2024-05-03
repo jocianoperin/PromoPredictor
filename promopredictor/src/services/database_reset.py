@@ -19,5 +19,11 @@ def drop_tables():  # Adicione db_manager como argumento
         
         db_manager.execute_query("DROP TABLE IF EXISTS vendasprodutosexport")
         logger.info("Tabela vendasprodutosexport excluída com sucesso.")
+
+        db_manager.execute_query("DROP TABLE IF EXISTS price_forecasts")
+        logger.info("Tabela price_forecasts excluída com sucesso.")
+
+        db_manager.execute_query("DROP TABLE IF EXISTS arima_model_config")
+        logger.info("Tabela arima_model_config excluída com sucesso.")
     except Exception as e:
         logger.error(f"Erro ao excluir tabelas: {e}")

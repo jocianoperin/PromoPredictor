@@ -19,14 +19,14 @@ def setup_database():
     Limpa, cria tabelas e índices no banco de dados, se necessário.
     """
     logger.info("Iniciando a limpeza do banco de dados...")
-    drop_tables()
+    #drop_tables()
     logger.info("Banco de dados limpo com sucesso.")
 
     logger.info("Iniciando a configuração do banco de dados...")
     create_table_if_not_exists()
     logger.info("Tabelas criadas/atualizadas com sucesso.")
 
-    configure_indexes()
+    #configure_indexes()
     logger.info("Índices criados/atualizados com sucesso.")
 
 def configure_indexes():
@@ -59,17 +59,17 @@ def clean_and_process_data():
     Limpa e processa os dados nas tabelas de vendas, removendo registros inválidos, duplicados e padronizando formatações.
     """
     logger.info("Iniciando a limpeza e processamento dos dados...")
-    remove_invalid_records("vendasexport", ["TotalPedido <= 0", "TotalPedido IS NULL"])
-    remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0", "ValorCusto <= 0"])
+    #remove_invalid_records("vendasexport", ["TotalPedido <= 0", "TotalPedido IS NULL"])
+    #remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0", "ValorCusto <= 0"])
 
-    clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
-    clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
+    #clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
+    #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
 
     # Chamada para imputar valores nulos usando ARIMA
     imput_null_values('vendasprodutosexport', 'CodigoProduto', 'Data', ['ValorCusto', 'ValorUnitario'])
 
-    remove_duplicates("vendasexport")
-    remove_duplicates("vendasprodutosexport")
+    #remove_duplicates("vendasexport")
+    #remove_duplicates("vendasprodutosexport")
 
     # Analisar possíveis outliers da vendasexport
     #identify_and_treat_outliers("vendasprodutosexport", "ValorCusto,ValorUnitario")
@@ -108,9 +108,9 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        setup_database()
+        #setup_database()
 
-        #clean_and_process_data()
+        clean_and_process_data()
 
         #process_promotions()
         #logger.info("process_promotions")

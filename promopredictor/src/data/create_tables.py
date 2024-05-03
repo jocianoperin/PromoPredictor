@@ -109,18 +109,6 @@ def create_table_if_not_exists():
         """)
         tables_created.append("price_forecasts")
 
-        # Criando a tabela de séries temporais
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS series_temporais (
-                Data DATE,
-                ValorOriginal DECIMAL(15, 2),
-                ValorImputadoARIMA DECIMAL(15, 2),
-                ValorImputadoRNN DECIMAL(15, 2),
-                IsImputed BOOLEAN
-            );
-        """)
-        tables_created.append("series_temporais")
-
         # Criando a tabela de configurações do modelo ARIMA
         db_manager.execute_query("""
             CREATE TABLE IF NOT EXISTS arima_model_config (
@@ -132,8 +120,7 @@ def create_table_if_not_exists():
                 q INT,
                 aic FLOAT,
                 bic FLOAT,
-                date_executed DATETIME,
-                FOREIGN KEY (product_id) REFERENCES vendasprodutosexport(CodigoProduto)
+                date_executed DATETIME
             );
         """)
         tables_created.append("arima_model_config")
