@@ -123,30 +123,20 @@ def create_table_if_not_exists():
 
         # Criando a tabela de configurações do modelo ARIMA
         db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS config_modelo_arima (
-                ModeloID INT AUTO_INCREMENT PRIMARY KEY,
-                P INT,
-                D INT,
-                Q INT,
-                DataExecucao DATETIME,
-                RMSE DECIMAL(10, 4)
+            CREATE TABLE IF NOT EXISTS arima_model_config (
+                model_id INT AUTO_INCREMENT PRIMARY KEY,
+                product_id INT,
+                value_column VARCHAR(255),
+                p INT,
+                d INT,
+                q INT,
+                aic FLOAT,
+                bic FLOAT,
+                date_executed DATETIME,
+                FOREIGN KEY (product_id) REFERENCES vendasprodutosexport(CodigoProduto)
             );
         """)
-        tables_created.append("config_modelo_arima")
-
-        # Criando a tabela de configurações do modelo RNN
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS config_modelo_rnn (
-                ModeloID INT AUTO_INCREMENT PRIMARY KEY,
-                Camadas INT,
-                Neuronios INT,
-                Epocas INT,
-                DataExecucao DATETIME,
-                RMSE DECIMAL(10, 4)
-            );
-        """)
-        tables_created.append("config_modelo_rnn")
-
+        tables_created.append("arima_model_config")
 
         logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
 

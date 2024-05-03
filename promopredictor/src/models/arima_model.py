@@ -7,7 +7,7 @@ from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def train_arima(series):
+def train_arima(series, product_id, value_column, p=1, d=1, q=1):
     """
     Treina um modelo ARIMA com os dados de série temporal fornecidos.
     Args:
@@ -19,6 +19,7 @@ def train_arima(series):
         model = ARIMA(series, order=(1, 1, 1))  # Ajuste estes parâmetros conforme necessário
         arima_result = model.fit()
         logger.info("Modelo ARIMA treinado com sucesso.")
+        save_arima_config(product_id, value_column, arima_result, p, d, q)
         return arima_result
     except Exception as e:
         logger.error(f"Erro ao treinar o modelo ARIMA: {e}")
@@ -64,3 +65,25 @@ def impute_values(table, product_column, date_column, value_column, product_id, 
         logger.info(f"Valor imputado com sucesso para o produto {product_id} na coluna {value_column}.")
     except Exception as e:
         logger.error(f"Erro ao imputar valor para o produto {product_id}: {e}")
+
+def save_arima_config(product_id, value_column, model, p, d, q):
+    """
+    Salva a configuração do modelo ARIMA no banco de dados.
+    Args:
+        product_id (int): ID do produto para o qual o modelo foi treinado.
+        value_column (str): Coluna para a qual o modelo foi aplicado.
+        model (ARIMA ResultsWrapper): Modelo ARIMA treinado.
+        p (int): Ordem do componente AR do modelo.
+        d (int): Ordem do componente de diferenciação.
+        q (int): Ordem do componente MA do modelo.
+    """
+    insert_query = """
+    INSERT INTO arima_model_config (product_id, value_column, p, d, q, aic, bic, date_executed)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW());
+    """
+    params = (product_id, value_column, p, d, q, model.aic, model.bic)
+    try:
+        db_manager.execute_query(insert_query, params)
+        logger.info("Configuração do modelo ARIMA salva com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro ao salvar configuração do modelo ARIMA: {e}")
