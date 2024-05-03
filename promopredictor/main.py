@@ -53,12 +53,14 @@ def clean_and_process_data():
     Limpa e processa os dados nas tabelas de vendas, removendo registros inválidos, duplicados e padronizando formatações.
     """
     logger.info("Iniciando a limpeza e processamento dos dados...")
-    #remove_invalid_records("vendasexport", ["TotalPedido <= 0", "TotalPedido IS NULL"])
-    #remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0", "ValorCusto <= 0"])
+    
+    #Funções ocultas que ficaram na data_cleaner.py
+        #remove_invalid_records("vendasexport", ["TotalPedido <= 0", "TotalPedido IS NULL"])
+        #remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0", "ValorCusto <= 0"])
 
-    # Substituindo pela imputação por ARIMA
-    #clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
-    #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
+        # Substituindo pela imputação por ARIMA
+        #clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
+        #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
 
     # Chamada para imputar valores nulos usando ARIMA
     imput_null_values('vendasprodutosexport', 'CodigoProduto', 'Data', ['ValorCusto', 'ValorUnitario'])
