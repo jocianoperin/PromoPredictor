@@ -53,7 +53,7 @@ def clean_and_process_data():
     Limpa e processa os dados nas tabelas de vendas, removendo registros inválidos, duplicados e padronizando formatações.
     """
     logger.info("Iniciando a limpeza e processamento dos dados...")
-    
+
     #Funções ocultas que ficaram na data_cleaner.py
         #remove_invalid_records("vendasexport", ["TotalPedido <= 0", "TotalPedido IS NULL"])
         #remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0", "ValorCusto <= 0"])
@@ -86,18 +86,6 @@ def clean_and_process_data():
     process_promotions_in_chunks()
     logger.info("Processamento de promoções concluído com sucesso.")'''
 
-'''def train_and_test_model():
-    """
-    Treina o modelo de machine learning e realiza uma predição de teste.
-    """
-    logger.info("Iniciando o treinamento do modelo...")
-    train_model()
-    logger.info("Treinamento concluído com sucesso.")
-
-    logger.info("Realizando uma predição de teste...")
-    make_prediction()
-    logger.info("Predição de teste concluída.")'''
-
 def main():
     """
     Função principal que organiza a sequência de operações para inicialização do projeto.
@@ -105,7 +93,7 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        setup_database()
+        #setup_database()
 
         clean_and_process_data()
 
