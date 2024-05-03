@@ -1,15 +1,9 @@
 from src.data.create_tables import create_table_if_not_exists
-from src.data.data_cleaner import delete_data, update_data, clean_null_values, remove_duplicates, remove_invalid_records, standardize_formatting
 from src.data.index_manager import create_indexes
 #from src.data.promotion_processor import fetch_all_products, process_chunks
 #from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
 from src.services.database_reset import drop_tables
-from src.data.outlier_treatment import identify_and_treat_outliers
-from src.data.data_conversion import convert_data_types
-from src.data.data_exploration import explore_data
-from src.models.train_model import train_model
-from src.models.predict_model import make_prediction
 from src.data.missing_value_imputer import imput_null_values
 
 logger = get_logger(__name__)
@@ -19,14 +13,14 @@ def setup_database():
     Limpa, cria tabelas e índices no banco de dados, se necessário.
     """
     logger.info("Iniciando a limpeza do banco de dados...")
-    #drop_tables()
+    drop_tables()
     logger.info("Banco de dados limpo com sucesso.")
 
     logger.info("Iniciando a configuração do banco de dados...")
     create_table_if_not_exists()
     logger.info("Tabelas criadas/atualizadas com sucesso.")
 
-    #configure_indexes()
+    configure_indexes()
     logger.info("Índices criados/atualizados com sucesso.")
 
 def configure_indexes():
@@ -62,6 +56,7 @@ def clean_and_process_data():
     #remove_invalid_records("vendasexport", ["TotalPedido <= 0", "TotalPedido IS NULL"])
     #remove_invalid_records("vendasprodutosexport", ["ValorTotal <= 0", "Quantidade <= 0", "ValorCusto <= 0"])
 
+    # Substituindo pela imputação por ARIMA
     #clean_null_values("vendasprodutosexport", ["ValorCusto", "ValorUnitario", "Quantidade"])
     #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
 
@@ -108,7 +103,7 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        #setup_database()
+        setup_database()
 
         clean_and_process_data()
 

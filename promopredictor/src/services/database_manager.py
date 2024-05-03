@@ -1,3 +1,6 @@
+# Este módulo define a classe DatabaseManager que encapsula as operações de banco de dados,
+# permitindo alternar entre diferentes conectores de banco de dados com facilidade.
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,13 +15,18 @@ logger = get_logger(__name__)
 class DatabaseManager:
     """
     Gerencia as operações de banco de dados usando SQLAlchemy ou MySQL Connector,
-    dependendo da configuração escolhida.
+    dependendo da configuração escolhida. Essa abordagem modular permite uma fácil
+    adaptação e manutenção do acesso ao banco de dados em diferentes ambientes ou
+    preferências de tecnologia.
     """
     def __init__(self, use_sqlalchemy=False):
         """
-        Inicializa o DatabaseManager com a opção de usar SQLAlchemy ou MySQL Connector.
+        Inicializa o DatabaseManager. Pode configurar para usar SQLAlchemy, que é mais
+        abstrato e suporta várias bases de dados SQL, ou MySQL Connector, que é específico
+        para MySQL, podendo ser mais direto e performático em cenários específicos.
+        
         Args:
-            use_sqlalchemy (bool): Define se SQLAlchemy será usado para as operações de banco de dados.
+            use_sqlalchemy (bool): Se True, usa SQLAlchemy. Se False, usa MySQL Connector.
         """
         self.use_sqlalchemy = use_sqlalchemy
         if self.use_sqlalchemy:
@@ -37,14 +45,15 @@ class DatabaseManager:
 
     def execute_query(self, query, params=None):
         """
-        Executa uma consulta SQL no banco de dados configurado.
-
+        Executa uma consulta SQL, gerenciando a conexão e a execução de forma segura,
+        lidando com as especificidades de cada conector de banco de dados.
+        
         Args:
-            query (str): Consulta SQL a ser executada.
-            params (dict, optional): Parâmetros para a consulta SQL.
-
+            query (str): A consulta SQL a ser executada.
+            params (dict, optional): Parâmetros a serem substituídos na consulta, para prevenção de SQL Injection.
+        
         Returns:
-            Retorna os resultados da consulta para consultas SELECT ou o número de linhas afetadas para outras consultas.
+            dict: Um dicionário contendo 'data' e 'columns' para SELECTs ou 'rows_affected' para outras operações.
         """
         with lock:
             if self.use_sqlalchemy:

@@ -5,7 +5,8 @@ logger = get_logger(__name__)
 
 def create_table_if_not_exists():
     """
-    Cria tabelas no banco de dados se elas não existirem.
+    Cria tabelas no banco de dados se elas não existirem, verificando e informando o
+    sucesso da criação de cada uma.
     """
     tables_created = []
 
