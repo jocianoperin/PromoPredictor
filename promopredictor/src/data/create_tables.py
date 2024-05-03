@@ -6,7 +6,6 @@ logger = get_logger(__name__)
 def create_table_if_not_exists():
     """
     Cria tabelas no banco de dados se elas não existirem.
-    Utiliza a abstração DatabaseManager para gerenciar a conexão e execução de consultas SQL.
     """
     tables_created = []
 
@@ -109,6 +108,44 @@ def create_table_if_not_exists():
             );
         """)
         tables_created.append("price_forecasts")
+
+        # Criando a tabela de séries temporais
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS series_temporais (
+                Data DATE,
+                ValorOriginal DECIMAL(15, 2),
+                ValorImputadoARIMA DECIMAL(15, 2),
+                ValorImputadoRNN DECIMAL(15, 2),
+                IsImputed BOOLEAN
+            );
+        """)
+        tables_created.append("series_temporais")
+
+        # Criando a tabela de configurações do modelo ARIMA
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS config_modelo_arima (
+                ModeloID INT AUTO_INCREMENT PRIMARY KEY,
+                P INT,
+                D INT,
+                Q INT,
+                DataExecucao DATETIME,
+                RMSE DECIMAL(10, 4)
+            );
+        """)
+        tables_created.append("config_modelo_arima")
+
+        # Criando a tabela de configurações do modelo RNN
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS config_modelo_rnn (
+                ModeloID INT AUTO_INCREMENT PRIMARY KEY,
+                Camadas INT,
+                Neuronios INT,
+                Epocas INT,
+                DataExecucao DATETIME,
+                RMSE DECIMAL(10, 4)
+            );
+        """)
+        tables_created.append("config_modelo_rnn")
 
 
         logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
