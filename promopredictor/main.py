@@ -1,9 +1,8 @@
-from src.data.create_tables import create_table_if_not_exists
-from src.data.index_manager import create_indexes
+from src.services.tables_manager import create_tables, drop_tables, insert_data
+from src.services.index_manager import create_indexes
 #from src.data.promotion_processor import fetch_all_products, process_chunks
 #from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
-from src.services.database_reset import drop_tables
 from src.data.missing_value_imputer import imput_null_values
 
 logger = get_logger(__name__)
@@ -12,16 +11,14 @@ def setup_database():
     """
     Limpa, cria tabelas e índices no banco de dados, se necessário.
     """
-    logger.info("Iniciando a limpeza do banco de dados...")
     drop_tables()
     logger.info("Banco de dados limpo com sucesso.")
 
-    logger.info("Iniciando a configuração do banco de dados...")
-    create_table_if_not_exists()
+    create_tables()
     logger.info("Tabelas criadas/atualizadas com sucesso.")
 
-    configure_indexes()
-    logger.info("Índices criados/atualizados com sucesso.")
+    insert_data()
+    logger.info("Tabelas criadas/atualizadas com sucesso.")
 
 def configure_indexes():
     """
@@ -93,8 +90,13 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        #setup_database()
+        # Dropar, criar e inserir dados nas tabelas necessárias
+        setup_database()
 
+        # Criar indexes para otimização de consultas
+        configure_indexes()
+        logger.info("Índices criados/atualizados com sucesso.")
+        
         clean_and_process_data()
 
         #process_promotions()
