@@ -38,6 +38,7 @@ def imput_null_values(table, product_column, date_column, value_columns):
         value_columns (list): Lista de colunas para as quais os valores nulos serão imputados.
     """
     product_ids = get_product_ids_with_nulls('vendasprodutosexport', 'CodigoProduto', 'Data', ['ValorCusto', 'ValorUnitario'])
+
     with ThreadPoolExecutor(max_workers=4) as executor:
         for product_id in product_ids:
             for value_column in value_columns:
@@ -53,7 +54,7 @@ def get_product_ids_with_nulls(table, product_column, date_column, value_columns
     SELECT DISTINCT {table}.{product_column}
     FROM {table}
     JOIN vendasexport ON {table}.CodigoVenda = vendasexport.Codigo
-    WHERE {value_columns_condition} OR vendasexport.{date_column} IS NULL;
+    WHERE {value_columns_condition};
     """
     
     try:
