@@ -169,6 +169,50 @@ def insert_data():
     except Exception as e:
         logger.error(f"Erro ao inserir dados: {e}")
 
+def configure_indexes():
+    """
+    Configura os índices nas tabelas de vendas.
+    """
+    indexes_vendasexport = [
+        ("idx_codigo", "vendasexport", "Codigo"),
+        ("idx_data", "vendasexport", "Data"),
+        ("idx_codigocliente", "vendasexport", "CodigoCliente"),
+        ("idx_data_codigocliente", "vendasexport", "Data, CodigoCliente"),
+        ("idx_totalpedido", "vendasexport", "TotalPedido"),
+    ]
+
+    indexes_vendasprodutosexport = [
+        ("idx_vendasprodutosexport_codigovenda", "vendasprodutosexport", "CodigoVenda"),
+        ("idx_vendasprodutosexport_codigoproduto", "vendasprodutosexport", "CodigoProduto"),
+        ("idx_vendasprodutosexport_codigosecao", "vendasprodutosexport", "CodigoSecao"),
+        ("idx_vendasprodutosexport_codigogrupo", "vendasprodutosexport", "CodigoGrupo"),
+        ("idx_vendasprodutosexport_codigosubgrupo", "vendasprodutosexport", "CodigoSubGrupo"),
+        ("idx_vendasprodutosexport_secaogrupo", "vendasprodutosexport", "CodigoSecao, CodigoGrupo"),
+        ("idx_vendasprodutosexport_valorunitario", "vendasprodutosexport", "ValorUnitario"),
+        ("idx_vendasprodutosexport_quantidade", "vendasprodutosexport", "Quantidade"),
+        ("idx_vendasprodutosexport_desconto", "vendasprodutosexport", "Desconto"),
+        ("idx_vendasprodutosexport_precoempromocao", "vendasprodutosexport", "PrecoemPromocao"),
+    ]
+
+    create_indexes(indexes_vendasprodutosexport + indexes_vendasexport)
+
+def create_indexes(indexes):
+    """
+    Cria índices nas tabelas especificadas.
+
+    Args:
+        indexes (list): Uma lista de tuplas, onde cada tupla contém:
+            (nome_do_índice, nome_da_tabela, colunas_do_índice)
+    """
+    for index_name, table_name, columns in indexes:
+        try:
+            db_manager.execute_query(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({columns})")
+            logger.info(f"Índice {index_name} criado com sucesso na tabela {table_name}.")
+        except Exception as e:
+            logger.error(f"Erro ao criar índice {index_name} na tabela {table_name}: {e}")
+
+
+
 if __name__ == "__main__":
    # Exemplo de uso
    create_tables()
