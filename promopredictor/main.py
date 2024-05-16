@@ -1,9 +1,8 @@
-from src.data.create_tables import create_table_if_not_exists
-from src.data.index_manager import create_indexes
+from src.services.tables_manager import create_tables, drop_tables, insert_data, configure_indexes
+from src.services.index_manager import create_indexes
 #from src.data.promotion_processor import fetch_all_products, process_chunks
 #from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
-from src.services.database_reset import drop_tables
 from src.data.missing_value_imputer import imput_null_values
 
 logger = get_logger(__name__)
@@ -12,41 +11,14 @@ def setup_database():
     """
     Limpa, cria tabelas e índices no banco de dados, se necessário.
     """
-    logger.info("Iniciando a limpeza do banco de dados...")
     drop_tables()
     logger.info("Banco de dados limpo com sucesso.")
 
-    logger.info("Iniciando a configuração do banco de dados...")
-    create_table_if_not_exists()
+    create_tables()
     logger.info("Tabelas criadas/atualizadas com sucesso.")
 
-    configure_indexes()
-    logger.info("Índices criados/atualizados com sucesso.")
-
-def configure_indexes():
-    """
-    Configura os índices nas tabelas de vendas.
-    """
-    indexes_vendasexport = [
-        ("idx_codigo", "vendasexport", "Codigo"),
-        ("idx_data", "vendasexport", "Data"),
-        ("idx_codigocliente", "vendasexport", "CodigoCliente"),
-        ("idx_data_codigocliente", "vendasexport", "Data, CodigoCliente"),
-        ("idx_totalpedido", "vendasexport", "TotalPedido"),
-    ]
-    indexes_vendasprodutosexport = [
-        ("idx_vendasprodutosexport_codigovenda", "vendasprodutosexport", "CodigoVenda"),
-        ("idx_vendasprodutosexport_codigoproduto", "vendasprodutosexport", "CodigoProduto"),
-        ("idx_vendasprodutosexport_codigosecao", "vendasprodutosexport", "CodigoSecao"),
-        ("idx_vendasprodutosexport_codigogrupo", "vendasprodutosexport", "CodigoGrupo"),
-        ("idx_vendasprodutosexport_codigosubgrupo", "vendasprodutosexport", "CodigoSubGrupo"),
-        ("idx_vendasprodutosexport_secaogrupo", "vendasprodutosexport", "CodigoSecao, CodigoGrupo"),
-        ("idx_vendasprodutosexport_valorunitario", "vendasprodutosexport", "ValorUnitario"),
-        ("idx_vendasprodutosexport_quantidade", "vendasprodutosexport", "Quantidade"),
-        ("idx_vendasprodutosexport_desconto", "vendasprodutosexport", "Desconto"),
-        ("idx_vendasprodutosexport_precoempromocao", "vendasprodutosexport", "PrecoemPromocao"),
-    ]
-    create_indexes(indexes_vendasprodutosexport + indexes_vendasexport)
+    insert_data()
+    logger.info("Tabelas criadas/atualizadas com sucesso.")
 
 def clean_and_process_data():
     """
@@ -93,8 +65,13 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
+        # Dropar, criar e inserir dados nas tabelas necessárias
         #setup_database()
 
+        # Criar indexes para otimização de consultas
+        #configure_indexes()
+        logger.info("Índices criados/atualizados com sucesso.")
+        
         clean_and_process_data()
 
         #process_promotions()
