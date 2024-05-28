@@ -50,8 +50,10 @@ def get_data_for_product(table, product_column, date_column, value_column, produ
     WHERE {product_column} = %s
     ORDER BY {date_column};
     """
+
     try:
         result = db_manager.execute_query(query, [product_id])
+        
         if result and 'data' in result:
             df = pd.DataFrame(result['data'], columns=['ExportID', date_column, 'CodigoProduto', value_column])
             return df
@@ -74,6 +76,7 @@ def process_column(table, product_column, date_column, value_column, product_id)
         product_id (int): ID do produto.
     """
     data = get_data_for_product(table, product_column, date_column, value_column, product_id)
+    logger.info(data)
 
     if data.empty:
         logger.warning(f"Não há dados suficientes para treinar o modelo ARIMA para o produto {product_id} na coluna {value_column}.")
@@ -81,7 +84,10 @@ def process_column(table, product_column, date_column, value_column, product_id)
 
     # Separar dados nulos e não nulos
     non_null_data = data[data[value_column].notnull()]
+    logger.info(non_null_data)
+
     null_data = data[data[value_column].isnull()]
+    logger.info(null_data)
 
     if non_null_data.empty or null_data.empty:
         logger.warning(f"Não há dados suficientes para treinar o modelo ARIMA para o produto {product_id} na coluna {value_column}.")
@@ -116,6 +122,7 @@ def impute_null_values(table, product_column, date_column, value_columns):
         value_columns (list): Lista de colunas para as quais os valores nulos serão imputados.
     """
     products_with_nulls = get_products_with_nulls(table, product_column, value_columns)
+    logger.info(products_with_nulls)
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         for value_column, product_ids in products_with_nulls.items():

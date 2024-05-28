@@ -28,9 +28,14 @@ def train_arima(data, p=1, d=1, q=1):
         # Remover valores nulos após a conversão
         series = series.dropna()
 
-        # Ajuste o índice conforme necessário para corresponder à coluna de valores
+        # Ajustar o índice conforme necessário para corresponder à coluna de valores
+        series.index = pd.to_datetime(data.iloc[:, 1])  # Ajustando o índice para a coluna de datas
+
+        # Definir a frequência do índice (diária neste exemplo)
+        series = series.asfreq('D')
+        
         model = ARIMA(series, order=(p, d, q))
-        arima_result = model.fit()
+        arima_result = model.fit(method='nm', maxiter=500)  # Ajustando método de otimização e número de iterações
         logger.info("Modelo ARIMA treinado com sucesso.")
         return arima_result
     except Exception as e:
@@ -82,6 +87,7 @@ def insert_arima_predictions(table, product_column, date_column, value_column, p
             logger.info(f"Valor {value} previsto com sucesso para o produto {product_id} na coluna {value_column}.")
     except Exception as e:
         logger.error(f"Erro ao inserir previsão para o produto {product_id}: {e}")
+
 
 def impute_values(table, product_column, value_column, product_id, null_data, forecast):
     """
