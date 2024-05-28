@@ -116,6 +116,20 @@ def create_tables():
         """)
         tables_created.append("model_config")
 
+        # Criando a tabela arima_predictions
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS arima_predictions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                product_id INT NOT NULL,
+                export_id INT NOT NULL,
+                date DATE NOT NULL,
+                value_column VARCHAR(255) NOT NULL,
+                predicted_value DECIMAL(15, 2) NOT NULL,
+                UNIQUE KEY unique_prediction (product_id, export_id, date, value_column)
+            );
+        """)
+        tables_created.append("arima_predictions")
+
         logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
 
     except Exception as e:
@@ -143,6 +157,9 @@ def drop_tables():
 
         db_manager.execute_query("DROP TABLE IF EXISTS model_config")
         logger.info("Tabela model_config excluída com sucesso.")
+
+        db_manager.execute_query("DROP TABLE IF EXISTS arima_predictions")
+        logger.info("Tabela arima_predictions excluída com sucesso.")
 
     except Exception as e:
         logger.error(f"Erro ao excluir tabelas: {e}")
@@ -210,11 +227,3 @@ def create_indexes(indexes):
             logger.info(f"Índice {index_name} criado com sucesso na tabela {table_name}.")
         except Exception as e:
             logger.error(f"Erro ao criar índice {index_name} na tabela {table_name}: {e}")
-
-
-
-if __name__ == "__main__":
-   # Exemplo de uso
-   create_tables()
-   insert_data()
-   # drop_tables()

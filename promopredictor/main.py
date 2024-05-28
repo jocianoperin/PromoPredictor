@@ -3,7 +3,7 @@ from src.services.index_manager import create_indexes
 #from src.data.promotion_processor import fetch_all_products, process_chunks
 #from src.data.promotion_sales_processor import process_promotions_in_chunks
 from src.utils.logging_config import get_logger
-from src.data.missing_value_imputer import imput_null_values
+from src.data.arima_imputer import impute_null_values
 
 logger = get_logger(__name__)
 
@@ -35,7 +35,7 @@ def clean_and_process_data():
         #clean_null_values("vendasexport", ["TotalPedido", "TotalCusto"])
 
     # Chamada para imputar valores nulos usando ARIMA
-    imput_null_values('vendasprodutosexport', 'CodigoProduto', 'Data', ['ValorCusto', 'ValorUnitario'])
+    impute_null_values('vendasprodutosexport', 'CodigoProduto', 'Data', ['ValorCusto', 'ValorUnitario'])
 
     #remove_duplicates("vendasexport")
     #remove_duplicates("vendasprodutosexport")
@@ -70,7 +70,7 @@ def main():
 
         # Criar indexes para otimização de consultas
         #configure_indexes()
-        logger.info("Índices criados/atualizados com sucesso.")
+        #logger.info("Índices criados/atualizados com sucesso.")
         
         clean_and_process_data()
 
