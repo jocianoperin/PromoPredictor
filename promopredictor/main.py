@@ -1,8 +1,8 @@
 from src.services.tables_manager import create_tables, drop_tables, insert_data, configure_indexes
 from src.services.data_cleaner import clean_null_values, remove_invalid_records, remove_duplicates
 from src.services.data_formatter import standardize_formatting, check_data_types
+from src.services.outlier_detection import detect_and_remove_outliers
 from src.utils.logging_config import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -54,6 +54,11 @@ def clean_and_process_data():
     column_types = {'data': 'DATE', 'valorunitario': 'DECIMAL(10,2)'}
     check_data_types('vendasexport', column_types)
     check_data_types('vendasprodutosexport', column_types)
+
+    # Detecção e remoção de outliers
+    detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
+    detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
+
 
     logger.info("Dados limpos com sucesso.")
 
