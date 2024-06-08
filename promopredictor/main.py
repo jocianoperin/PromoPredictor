@@ -3,6 +3,7 @@ from src.services.data_cleaner import clean_null_values, remove_invalid_records,
 from src.services.data_formatter import standardize_formatting, check_data_types
 from src.utils.logging_config import get_logger
 
+
 logger = get_logger(__name__)
 
 def setup_database():
