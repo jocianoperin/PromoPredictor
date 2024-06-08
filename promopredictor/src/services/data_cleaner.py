@@ -28,24 +28,30 @@ def update_data(table_name, updates, condition):
 
 def clean_null_values(table_name, columns):
     """
-    Atualiza valores NULL para 0 nas colunas especificadas de uma tabela.
+    Remove registros com valores NULL nas colunas especificadas de uma tabela.
     Args:
-        table_name (str): Nome da tabela a ser atualizada.
-        columns (list of str): Lista de colunas onde os valores NULL devem ser atualizados para 0.
+        table_name (str): Nome da tabela de onde os registros serão removidos.
+        columns (list of str): Lista de colunas onde os valores NULL devem ser removidos.
     """
     for column in columns:
         condition = f"{column} IS NULL"
-        updates = f"{column} = 0"
-        affected_rows = update_data(table_name, updates, condition)
-        logger.info(f"Limpeza na tabela '{table_name}': {affected_rows} linhas atualizadas onde {column} era NULL.")
+        delete_data(table_name, condition)
+        logger.info(f"Registros removidos da tabela '{table_name}' onde {column} era NULL.")
+
+def remove_invalid_records(table_name, conditions):
+    """
+    Remove registros inválidos de uma tabela com base em condições específicas.
+    Args:
+        table_name (str): Nome da tabela da qual os registros inválidos serão removidos.
+        conditions (list of str): Condições para identificar quais registros são considerados inválidos.
+    """
+    for condition in conditions:
+        delete_data(table_name, condition)
 
 def remove_duplicates(table_name):
     """
     Remove registros duplicados de uma tabela, considerando todas as colunas exceto a chave primária.
     Se duas linhas têm os mesmos valores para todas as colunas, exceto a chave primária, uma delas será removida.
-
-    Args:
-        table_name (str): Nome da tabela da qual os registros duplicados serão removidos.
     """
     primary_key_columns = get_primary_key_columns(table_name)
     all_columns = get_all_columns(table_name)
@@ -77,7 +83,6 @@ def remove_duplicates(table_name):
     """
 
     logger.debug(f"A query a ser executada é: {query}")
-    # Executando a query e logando o resultado
     try:
         success = db_manager.execute_query(query)
         if success:
@@ -86,16 +91,6 @@ def remove_duplicates(table_name):
             logger.error(f"Erro ao remover registros duplicados da tabela '{table_name}'. A query pode ter sido executada, mas sem sucesso na remoção.")
     except Exception as e:
         logger.error(f"Erro ao executar a remoção de duplicatas na tabela {table_name}: {e}")
-
-def remove_invalid_records(table_name, conditions):
-    """
-    Remove registros inválidos de uma tabela com base em condições específicas.
-    Args:
-        table_name (str): Nome da tabela da qual os registros inválidos serão removidos.
-        conditions (list of str): Condições para identificar quais registros são considerados inválidos.
-    """
-    for condition in conditions:
-        delete_data(table_name, condition)
 
 def get_primary_key_columns(table_name):
     """
