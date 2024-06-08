@@ -1,5 +1,6 @@
 from src.services.tables_manager import create_tables, drop_tables, insert_data, configure_indexes
 from src.services.data_cleaner import clean_null_values, remove_invalid_records, remove_duplicates
+from src.services.data_formatter import standardize_formatting, check_data_types
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -42,6 +43,16 @@ def clean_and_process_data():
     # Remoção de duplicatas
     remove_duplicates("vendasexport")
     remove_duplicates("vendasprodutosexport")
+
+    # Padronização de formatos
+    formatting_rules = {'data': 'STR_TO_DATE', 'valorunitario': 'FORMAT'}
+    standardize_formatting('vendasexport', formatting_rules)
+    standardize_formatting('vendasprodutosexport', formatting_rules)
+
+    # Verificação de tipos de dados
+    column_types = {'data': 'DATE', 'valorunitario': 'DECIMAL(10,2)'}
+    check_data_types('vendasexport', column_types)
+    check_data_types('vendasprodutosexport', column_types)
 
     logger.info("Dados limpos com sucesso.")
 
