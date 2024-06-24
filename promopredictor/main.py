@@ -42,8 +42,9 @@ def clean_and_process_data():
     ])
 
     # Remoção de duplicatas
-    remove_duplicates("vendasexport")
-    remove_duplicates("vendasprodutosexport")
+    #remove_duplicates("vendasexport")
+    #remove_duplicates("vendasprodutosexport")
+    #Difícil localizar um padrão de dados duplicados
 
     # Padronização de formatos
     formatting_rules = {'data': 'STR_TO_DATE', 'valorunitario': 'FORMAT'}
@@ -70,7 +71,7 @@ def main():
         logger.info("Iniciando o processo de inicialização do projeto...")
 
         # Dropar, criar e inserir dados nas tabelas necessárias
-        setup_database()
+        #setup_database()
         
         clean_and_process_data()
 
