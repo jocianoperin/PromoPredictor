@@ -46,16 +46,12 @@ def clean_and_process_data():
     #remove_duplicates("vendasprodutosexport")
     #Difícil localizar um padrão de dados duplicados
 
-    # Padronização de formatos
-    formatting_rules = {'data': 'STR_TO_DATE', 'valorunitario': 'FORMAT'}
-    standardize_formatting('vendasexport', formatting_rules)
-    standardize_formatting('vendasprodutosexport', formatting_rules)
-
     # Verificação de tipos de dados
-    column_types = {'data': 'DATE', 'valorunitario': 'DECIMAL(10,2)'}
-    check_data_types('vendasexport', column_types)
+    column_types = {'valorunitario': 'DECIMAL(10,2)'}
     check_data_types('vendasprodutosexport', column_types)
-
+    column_types = {'data': 'DATE'}
+    check_data_types('vendasexport', column_types)
+    
     # Detecção e remoção de outliers
     detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
     detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
