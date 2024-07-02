@@ -39,7 +39,6 @@ def clean_and_process_data():
         "valorcusto IS NULL OR valorcusto <= 0"
     ])
 
-
     # Remoção de duplicatas
     remove_duplicates("vendasexport")
     remove_duplicates("vendasprodutosexport")
