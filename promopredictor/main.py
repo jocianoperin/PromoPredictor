@@ -43,6 +43,7 @@ def clean_and_process_data():
     remove_duplicates("vendasexport")
     remove_duplicates("vendasprodutosexport")
 
+
     logger.info("Dados limpos com sucesso.")
 
 def main():
