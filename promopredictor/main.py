@@ -57,6 +57,7 @@ def clean_and_process_data():
     detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
 
 
+
     logger.info("Dados limpos com sucesso.")
 
 def main():
