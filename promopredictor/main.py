@@ -1,5 +1,7 @@
 from src.services.tables_manager import create_tables, drop_tables, insert_data, configure_indexes
 from src.services.data_cleaner import clean_null_values, remove_invalid_records, remove_duplicates
+from src.services.data_formatter import standardize_formatting, check_data_types
+from src.services.outlier_detection import detect_and_remove_outliers
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -42,7 +44,17 @@ def clean_and_process_data():
     # Remoção de duplicatas
     #remove_duplicates("vendasexport")
     #remove_duplicates("vendasprodutosexport")
+    #Difícil localizar um padrão de dados duplicados
 
+    # Verificação de tipos de dados
+    column_types = {'valorunitario': 'DECIMAL(10,2)'}
+    check_data_types('vendasprodutosexport', column_types)
+    column_types = {'data': 'DATE'}
+    check_data_types('vendasexport', column_types)
+    
+    # Detecção e remoção de outliers
+    detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
+    detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
 
     logger.info("Dados limpos com sucesso.")
 
@@ -54,7 +66,7 @@ def main():
         logger.info("Iniciando o processo de inicialização do projeto...")
 
         # Dropar, criar e inserir dados nas tabelas necessárias
-        setup_database()
+        #setup_database()
         
         clean_and_process_data()
 
