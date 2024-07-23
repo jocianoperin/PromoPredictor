@@ -130,6 +130,17 @@ def create_tables():
         """)
         tables_created.append("arima_predictions")
 
+        # Criando a tabela outliers
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS outliers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                original_table VARCHAR(255),
+                data JSON,
+                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        tables_created.append("outliers")
+
         logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
 
     except Exception as e:

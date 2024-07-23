@@ -40,8 +40,8 @@ def clean_and_process_data():
     ])
 
     # Remoção de duplicatas
-    remove_duplicates("vendasexport")
-    remove_duplicates("vendasprodutosexport")
+    #remove_duplicates("vendasexport")
+    #remove_duplicates("vendasprodutosexport")
 
 
     logger.info("Dados limpos com sucesso.")
