@@ -1,6 +1,7 @@
 import pandas as pd
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
+import json
 
 logger = get_logger(__name__)
 
@@ -13,7 +14,8 @@ def detect_and_remove_outliers(table_name, columns):
     """
     try:
         for column in columns:
-            query = f"SELECT {column} FROM {table_name}"
+            # Ajustar a consulta para selecionar a coluna de identificação correta
+            query = f"SELECT ExportID, {column} FROM {table_name}"
             result = db_manager.execute_query(query)
 
             if 'data' in result and 'columns' in result:
@@ -26,14 +28,24 @@ def detect_and_remove_outliers(table_name, columns):
                 lower_bound = Q1 - 1.5 * IQR
                 upper_bound = Q3 + 1.5 * IQR
 
-                delete_query = f"DELETE FROM {table_name} WHERE {column} < {lower_bound} OR {column} > {upper_bound}"
-                affected_rows = db_manager.execute_query(delete_query)
-                logger.info(f"DELETE na tabela '{table_name}': {affected_rows['rows_affected']} linhas removidas por serem outliers na coluna '{column}'.")
+                # Identificar outliers
+                outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+                
+                # Inserir outliers na tabela 'outliers'
+                for index, row in outliers.iterrows():
+                    insert_query = f"""
+                    INSERT INTO outliers (original_table, column_name, outlier_value) 
+                    VALUES ('{table_name}', '{column}', {row[column]})
+                    """
+                    db_manager.execute_query(insert_query)
+
+                # Deletar outliers da tabela original
+                outlier_ids = outliers['ExportID'].tolist()
+                if outlier_ids:
+                    delete_query = f"DELETE FROM {table_name} WHERE ExportID IN ({', '.join(map(str, outlier_ids))})"
+                    affected_rows = db_manager.execute_query(delete_query)
+                    logger.info(f"DELETE na tabela '{table_name}': {affected_rows['rows_affected']} linhas removidas por serem outliers na coluna '{column}'.")
             else:
                 logger.error(f"Erro ao executar consulta SQL: {result}")
     except Exception as e:
         logger.error(f"Erro ao detectar e remover outliers na tabela '{table_name}': {e}")
-
-# Exemplo de uso:
-# detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
-# detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])

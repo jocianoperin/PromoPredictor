@@ -130,6 +130,18 @@ def create_tables():
         """)
         tables_created.append("arima_predictions")
 
+        # Criando a tabela outliers
+        db_manager.execute_query("""
+            CREATE TABLE IF NOT EXISTS outliers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                original_table VARCHAR(255),
+                column_name VARCHAR(255),
+                outlier_value DOUBLE,
+                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        tables_created.append("outliers")
+
         logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
 
     except Exception as e:
@@ -160,6 +172,9 @@ def drop_tables():
 
         db_manager.execute_query("DROP TABLE IF EXISTS arima_predictions")
         logger.info("Tabela arima_predictions excluída com sucesso.")
+
+        db_manager.execute_query("DROP TABLE IF EXISTS outliers")
+        logger.info("Tabela outliers excluída com sucesso.")
 
     except Exception as e:
         logger.error(f"Erro ao excluir tabelas: {e}")
