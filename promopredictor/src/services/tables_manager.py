@@ -135,7 +135,8 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS outliers (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 original_table VARCHAR(255),
-                data JSON,
+                column_name VARCHAR(255),
+                outlier_value DOUBLE,
                 detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -171,6 +172,9 @@ def drop_tables():
 
         db_manager.execute_query("DROP TABLE IF EXISTS arima_predictions")
         logger.info("Tabela arima_predictions excluída com sucesso.")
+
+        db_manager.execute_query("DROP TABLE IF EXISTS outliers")
+        logger.info("Tabela outliers excluída com sucesso.")
 
     except Exception as e:
         logger.error(f"Erro ao excluir tabelas: {e}")

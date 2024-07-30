@@ -47,13 +47,13 @@ def clean_and_process_data():
     #Difícil localizar um padrão de dados duplicados
 
     # Verificação de tipos de dados
-    column_types = {'valorunitario': 'DECIMAL(10,2)'}
-    check_data_types('vendasprodutosexport', column_types)
-    column_types = {'data': 'DATE'}
-    check_data_types('vendasexport', column_types)
+    #column_types = {'valorunitario': 'DECIMAL(10,2)'}
+    #check_data_types('vendasprodutosexport', column_types)
+    #column_types = {'data': 'DATE'}
+    #check_data_types('vendasexport', column_types)
     
     # Detecção e remoção de outliers
-    detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
+    #detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
     detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
 
     logger.info("Dados limpos com sucesso.")
@@ -66,7 +66,7 @@ def main():
         logger.info("Iniciando o processo de inicialização do projeto...")
 
         # Dropar, criar e inserir dados nas tabelas necessárias
-        #setup_database()
+        setup_database()
         
         clean_and_process_data()
 
