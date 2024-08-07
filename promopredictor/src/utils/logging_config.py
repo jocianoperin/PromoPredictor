@@ -34,7 +34,8 @@ def get_logger(name):
     handler = RotatingFileHandler(
         log_file_path, 
         maxBytes=10485760,  # Máximo de 10 MB por arquivo de log
-        backupCount=10  # Mantém backup dos últimos 10 arquivos de log
+        backupCount=10,  # Mantém backup dos últimos 10 arquivos de log
+        encoding='utf-8'  # Define a codificação para UTF-8
     )
     # Define o formato das mensagens de log
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

@@ -78,8 +78,8 @@ def create_tables():
                 DataInicioPromocao DATE NOT NULL,
                 DataFimPromocao DATE NOT NULL,
                 QuantidadeTotal INT,
-                ValorTotalVendido DECIMAL(10, 2),
-                UNIQUE KEY unique_indicator (CodigoProduto, DataInicioPromocao, DataFimPromocao)
+                ValorTotalVendido DECIMAL(10,2),
+                TicketMedio DECIMAL(10,2)
             );
         """)
         tables_created.append("sales_indicators")
