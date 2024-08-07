@@ -34,8 +34,8 @@ def detect_and_remove_outliers(table_name, columns, window_size=10, threshold=3)
                 # Inserir outliers na tabela 'outliers'
                 for index, row in outliers.iterrows():
                     insert_query = f"""
-                    INSERT INTO outliers (original_table, column_name, outlier_value) 
-                    VALUES ('{table_name}', '{column}', {row[column]})
+                    INSERT INTO outliers (original_table, column_name, outlier_value, primary_key_id) 
+                    VALUES ('{table_name}', '{column}', {row[column]}, {row['ExportID']})
                     """
                     db_manager.execute_query(insert_query)
 
