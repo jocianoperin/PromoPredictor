@@ -11,7 +11,7 @@ def calculate_promotion_indicators():
     """
     try:
         # Carregar dados das tabelas
-        promotions_query = "SELECT * FROM promotion_identified"
+        promotions_query = "SELECT * FROM promotions_identified"
         vendas_query = "SELECT * FROM vendasexport"
         produtos_query = "SELECT * FROM vendasprodutosexport"
         
