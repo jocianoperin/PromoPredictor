@@ -137,6 +137,7 @@ def create_tables():
                 original_table VARCHAR(255),
                 column_name VARCHAR(255),
                 outlier_value DOUBLE,
+                primary_key_id INT,
                 detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
