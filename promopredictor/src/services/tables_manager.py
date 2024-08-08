@@ -65,7 +65,7 @@ def create_tables():
                 DataFimPromocao DATE NOT NULL,
                 ValorUnitario DECIMAL(10, 2) NOT NULL,
                 ValorTabela DECIMAL(10, 2) NOT NULL,
-                UNIQUE KEY unique_promocao (CodigoProduto)
+                UNIQUE KEY unique_promocao (CodigoProduto, DataInicioPromocao, DataFimPromocao)
             );
         """)
         tables_created.append("promotions_identified")

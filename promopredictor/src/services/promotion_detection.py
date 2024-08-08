@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 logger = get_logger(__name__)
 
-def identify_promotions(batch_size=10000):
+def identify_promotions(batch_size=1000000):
     """
     Identifica promoções na tabela de vendas e produtos, baseando-se em critérios como descontos e marcações de preços promocionais.
     """
