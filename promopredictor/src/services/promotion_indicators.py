@@ -1,8 +1,22 @@
 import pandas as pd
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = get_logger(__name__)
+
+def insert_indicators(row):
+    """
+    Função auxiliar para inserir indicadores na tabela sales_indicators.
+    """
+    try:
+        insert_query = f"""
+        INSERT INTO sales_indicators (CodigoProduto, DataInicioPromocao, DataFimPromocao, QuantidadeTotal, ValorTotalVendido, TicketMedio) 
+        VALUES ({row['CodigoProduto']}, '{row['DataInicioPromocao']}', '{row['DataFimPromocao']}', {row['QuantidadeTotal']}, {row['ValorTotalVendido']}, {row['TicketMedio']})
+        """
+        db_manager.execute_query(insert_query)
+    except Exception as e:
+        logger.error(f"Erro ao inserir indicador: {e}")
 
 def calculate_promotion_indicators():
     """
@@ -58,13 +72,11 @@ def calculate_promotion_indicators():
             
             df_indicators = pd.DataFrame(indicadores_list)
             
-            # Inserir indicadores na tabela sales_indicators
-            for _, row in df_indicators.iterrows():
-                insert_query = f"""
-                INSERT INTO sales_indicators (CodigoProduto, DataInicioPromocao, DataFimPromocao, QuantidadeTotal, ValorTotalVendido, TicketMedio) 
-                VALUES ({row['CodigoProduto']}, '{row['DataInicioPromocao']}', '{row['DataFimPromocao']}', {row['QuantidadeTotal']}, {row['ValorTotalVendido']}, {row['TicketMedio']})
-                """
-                db_manager.execute_query(insert_query)
+            # Inserir indicadores na tabela sales_indicators usando ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(insert_indicators, row) for _, row in df_indicators.iterrows()]
+                for future in as_completed(futures):
+                    future.result()
             
             logger.info("Indicadores de promoção inseridos na tabela sales_indicators com sucesso.")
             return df_indicators

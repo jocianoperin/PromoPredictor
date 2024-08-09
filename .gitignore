@@ -170,3 +170,5 @@ datasettest/
 
 #Logs
 /promopredictor/logs/*
+
+promopredictor.zip
