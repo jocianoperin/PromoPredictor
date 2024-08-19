@@ -63,6 +63,7 @@ def create_tables():
                     DataInicioPromocao DATE NOT NULL,
                     DataFimPromocao DATE NOT NULL,
                     ValorUnitario DECIMAL(10, 2) NOT NULL,
+                    ValorCusto DECIMAL(10, 2) NOT NULL,
                     ValorTabela DECIMAL(10, 2) NOT NULL,
                     UNIQUE KEY unique_promocao (CodigoProduto, DataInicioPromocao, DataFimPromocao)
                 );
@@ -72,13 +73,18 @@ def create_tables():
             "name": "sales_indicators",
             "query": """
                 CREATE TABLE IF NOT EXISTS sales_indicators (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id SERIAL PRIMARY KEY,
+                    PromotionId INT NOT NULL,
                     CodigoProduto INT NOT NULL,
                     DataInicioPromocao DATE NOT NULL,
                     DataFimPromocao DATE NOT NULL,
-                    QuantidadeTotal INT,
-                    ValorTotalVendido DECIMAL(10, 2),
-                    TicketMedio DECIMAL(10, 2)
+                    QuantidadeTotal INT NOT NULL,
+                    ValorTotalVendido DECIMAL(10, 2) NOT NULL,
+                    ValorCusto DECIMAL(10, 2) NOT NULL,
+                    TotalVendaCompleta DECIMAL(15, 2) NOT NULL,
+                    TicketMedio DECIMAL(10, 2) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (PromotionId) REFERENCES promotions_identified(id)
                 );
             """
         },

@@ -4,7 +4,7 @@ from src.services.data_formatter import standardize_formatting, check_data_types
 from src.services.outlier_detection import detect_and_remove_outliers
 from src.utils.logging_config import get_logger
 from src.services.promotion_detector import detect_promotions
-from src.services.promotion_indicators import calculate_promotion_indicators
+from src.services.promotion_indicators_processor import calculate_promotion_indicators
 
 logger = get_logger(__name__)
 
@@ -43,25 +43,28 @@ def main():
             "valorcusto IS NULL OR valorcusto <= 0"
         ])
 
-        # Remoção de duplicatas
-        """remove_duplicates("vendasexport")
-        remove_duplicates("vendasprodutosexport")"""
-        #Difícil localizar um padrão de dados duplicados
-
-        # Verificação de tipos de dados
+         # Verificação de tipos de dados
         column_types = {'valorunitario': 'DECIMAL(10,2)'}
         check_data_types('vendasprodutosexport', column_types)
         column_types = {'data': 'DATE'}
         check_data_types('vendasexport', column_types)
-        
-        """# Detecção e remoção de outliers
-        detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
-        detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])"""
+
+        # Remoção de duplicatas
+        #remove_duplicates("vendasexport")
+        #remove_duplicates("vendasprodutosexport")
+        #Difícil localizar um padrão de dados duplicados
+
+        # Detecção e remoção de outliers
+        #detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
+        #detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
 
         logger.info("Dados limpos com sucesso.")
 
         # Detectar promoções
         detect_promotions()
+
+        # Calcular indicadores da promoção
+        calculate_promotion_indicators()
 
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:

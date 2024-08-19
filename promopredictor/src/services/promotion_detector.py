@@ -96,8 +96,8 @@ def insert_promotions(promotions_df):
             else:
                 # Se não existe, inserir um novo registro
                 insert_query = f"""
-                INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, valorunitario, ValorTabela) 
-                VALUES ({row['CodigoProduto']}, '{row['Data'].date()}', '{row['Data'].date()}', {row['valorunitario']}, {row['ValorTabela']})
+                INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, valorunitario, ValorCusto, ValorTabela) 
+                VALUES ({row['CodigoProduto']}, '{row['Data'].date()}', '{row['Data'].date()}', {row['valorunitario']}, {row['ValorCusto']}, {row['ValorTabela']})
                 """
                 db_manager.execute_query(insert_query)
         logger.info("Promoções inseridas/atualizadas na tabela promotions_identified com sucesso.")
