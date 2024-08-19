@@ -16,7 +16,7 @@ def main():
         logger.info("Iniciando o processo de inicialização do projeto...")
 
         # Dropar, criar e inserir dados nas tabelas necessárias
-        """drop_tables()
+        drop_tables()
         logger.info("Banco de dados limpo com sucesso.")
 
         create_tables()
@@ -41,21 +41,21 @@ def main():
             "valortabela IS NULL OR valortabela <= 0",
             "valorunitario IS NULL OR valorunitario <= 0",
             "valorcusto IS NULL OR valorcusto <= 0"
-        ])"""
+        ])
 
         # Remoção de duplicatas
         """remove_duplicates("vendasexport")
-        remove_duplicates("vendasprodutosexport")
-        #Difícil localizar um padrão de dados duplicados"""
+        remove_duplicates("vendasprodutosexport")"""
+        #Difícil localizar um padrão de dados duplicados
 
         # Verificação de tipos de dados
-        """column_types = {'valorunitario': 'DECIMAL(10,2)'}
+        column_types = {'valorunitario': 'DECIMAL(10,2)'}
         check_data_types('vendasprodutosexport', column_types)
         column_types = {'data': 'DATE'}
-        check_data_types('vendasexport', column_types)"""
+        check_data_types('vendasexport', column_types)
         
-        # Detecção e remoção de outliers
-        """detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
+        """# Detecção e remoção de outliers
+        detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
         detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])"""
 
         logger.info("Dados limpos com sucesso.")

@@ -51,24 +51,55 @@ def detect_promotions(window_size=2, threshold=-0.05, n_workers=4):
 def process_group(group, window_size, threshold):
     """
     Processa um grupo de produtos para detectar promoções.
+    Agora verifica também se o produto está marcado como em promoção e se o valor é inferior ao de tabela.
     """
     group = group.sort_values(by='Data')
     group['PriceChange'] = group['valorunitario'].pct_change(window_size)
-    group['Promotion'] = (group['PriceChange'] <= threshold) & (group['ValorCusto'] == group['ValorCusto'].shift(window_size))
+    
+    # Nova condição para verificar se o produto está em promoção e se o valor unitário é menor que o valor de tabela
+    group['Promotion'] = (
+        (group['PrecoemPromocao'] == 1) & 
+        (group['valorunitario'] < group['ValorTabela']) &
+        (group['PriceChange'] <= threshold) & 
+        (group['ValorCusto'] == group['ValorCusto'].shift(window_size))
+    )
     
     return group[group['Promotion']]
 
 def insert_promotions(promotions_df):
     """
-    Insere as promoções detectadas na tabela `promotions_identified`.
+    Insere ou atualiza as promoções detectadas na tabela `promotions_identified`.
+    Se uma promoção com o mesmo `CodigoProduto`, `DataInicioPromocao`, `ValorUnitario`, e `ValorTabela`
+    já existir, apenas expande o período (`DataFimPromocao`).
     """
     try:
         for _, row in promotions_df.iterrows():
-            insert_query = f"""
-            INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, valorunitario, ValorTabela) 
-            VALUES ({row['CodigoProduto']}, '{row['Data'].date()}', '{row['Data'].date()}', {row['valorunitario']}, {row['ValorTabela']})
+            # Log de diagnóstico adicional
+            logger.debug(f"Processando promoção: CodigoProduto={row['CodigoProduto']}, Data={row['Data'].date()}, valorunitario={row['valorunitario']}, ValorTabela={row['ValorTabela']}")
+
+            # Verificar se já existe uma promoção com os mesmos detalhes
+            check_query = f"""
+            SELECT id, DataInicioPromocao, DataFimPromocao 
+            FROM promotions_identified 
+            WHERE CodigoProduto = {row['CodigoProduto']} 
+            AND ValorUnitario = {row['valorunitario']}
+            AND ValorTabela = {row['ValorTabela']}
+            AND DataInicioPromocao = '{row['Data'].date()}'
+            AND DataFimPromocao = '{row['Data'].date()}'
             """
-            db_manager.execute_query(insert_query)
-        logger.info("Promoções inseridas na tabela promotions_identified com sucesso.")
+            result = db_manager.execute_query(check_query)
+            
+            if result['data']:
+                # Promoção já existe, nenhum novo registro será criado
+                logger.info(f"Promoção já existente para CodigoProduto: {row['CodigoProduto']}, Data: {row['Data'].date()}")
+                continue
+            else:
+                # Se não existe, inserir um novo registro
+                insert_query = f"""
+                INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, valorunitario, ValorTabela) 
+                VALUES ({row['CodigoProduto']}, '{row['Data'].date()}', '{row['Data'].date()}', {row['valorunitario']}, {row['ValorTabela']})
+                """
+                db_manager.execute_query(insert_query)
+        logger.info("Promoções inseridas/atualizadas na tabela promotions_identified com sucesso.")
     except Exception as e:
-        logger.error(f"Erro ao inserir promoções na tabela: {e}")
+        logger.error(f"Erro ao inserir/atualizar promoções na tabela: {e}")
