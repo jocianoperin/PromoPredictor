@@ -7,239 +7,248 @@ def create_tables():
     """
     Cria tabelas no banco de dados se elas não existirem.
     """
-    tables_created = []
+    tables_to_create = [
+        {
+            "name": "vendasprodutosexport",
+            "query": """
+                CREATE TABLE IF NOT EXISTS vendasprodutosexport (
+                    ExportID INT AUTO_INCREMENT PRIMARY KEY,
+                    CodigoVenda INT,
+                    CodigoProduto INT,
+                    UNVenda VARCHAR(10),
+                    Quantidade DOUBLE,
+                    ValorTabela DECIMAL(15, 2),
+                    ValorUnitario DECIMAL(15, 2),
+                    ValorTotal DECIMAL(15, 2),
+                    Desconto DOUBLE,
+                    CodigoSecao INT,
+                    CodigoGrupo INT,
+                    CodigoSubGrupo INT,
+                    CodigoFabricante INT,
+                    ValorCusto DECIMAL(15, 2),
+                    ValorCustoGerencial DECIMAL(15, 2),
+                    Cancelada BOOLEAN,
+                    PrecoemPromocao BOOLEAN
+                );
+            """
+        },
+        {
+            "name": "vendasexport",
+            "query": """
+                CREATE TABLE IF NOT EXISTS vendasexport (
+                    ExportID INT AUTO_INCREMENT PRIMARY KEY,
+                    Codigo INT,
+                    Data DATE,
+                    Hora TIME,
+                    CodigoCliente INT,
+                    Status VARCHAR(10),
+                    TotalPedido DECIMAL(15, 2),
+                    Endereco VARCHAR(255),
+                    Numero VARCHAR(50),
+                    Bairro VARCHAR(100),
+                    Cidade VARCHAR(100),
+                    UF VARCHAR(2),
+                    CEP VARCHAR(10),
+                    TotalCusto DECIMAL(15, 2),
+                    Rentabilidade DECIMAL(15, 2)
+                );
+            """
+        },
+        {
+            "name": "promotions_identified",
+            "query": """
+                CREATE TABLE IF NOT EXISTS promotions_identified (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    CodigoProduto INT NOT NULL,
+                    DataInicioPromocao DATE NOT NULL,
+                    DataFimPromocao DATE NOT NULL,
+                    ValorUnitario DECIMAL(10, 2) NOT NULL,
+                    ValorTabela DECIMAL(10, 2) NOT NULL,
+                    UNIQUE KEY unique_promocao (CodigoProduto, DataInicioPromocao, DataFimPromocao)
+                );
+            """
+        },
+        {
+            "name": "sales_indicators",
+            "query": """
+                CREATE TABLE IF NOT EXISTS sales_indicators (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    CodigoProduto INT NOT NULL,
+                    DataInicioPromocao DATE NOT NULL,
+                    DataFimPromocao DATE NOT NULL,
+                    QuantidadeTotal INT,
+                    ValorTotalVendido DECIMAL(10, 2),
+                    TicketMedio DECIMAL(10, 2)
+                );
+            """
+        },
+        {
+            "name": "price_forecasts",
+            "query": """
+                CREATE TABLE IF NOT EXISTS price_forecasts (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    CodigoProduto INT NOT NULL,
+                    Data DATE NOT NULL,
+                    ValorUnitario DECIMAL(10, 2) NOT NULL,
+                    PrevisaoARIMA DECIMAL(10, 2),
+                    PrevisaoRNN DECIMAL(10, 2),
+                    UNIQUE KEY unique_forecast (CodigoProduto, Data)
+                );
+            """
+        },
+        {
+            "name": "model_config",
+            "query": """
+                CREATE TABLE IF NOT EXISTS model_config (
+                    config_id INT AUTO_INCREMENT PRIMARY KEY,
+                    product_id INT NOT NULL,
+                    export_id INT,
+                    value_column VARCHAR(255),
+                    model_type VARCHAR(50),
+                    parameters TEXT,
+                    aic FLOAT,
+                    bic FLOAT,
+                    date_executed DATETIME,
+                    INDEX idx_product (product_id),
+                    INDEX idx_export (export_id)
+                );
+            """
+        },
+        {
+            "name": "arima_predictions",
+            "query": """
+                CREATE TABLE IF NOT EXISTS arima_predictions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    product_id INT NOT NULL,
+                    export_id INT NOT NULL,
+                    date DATE NOT NULL,
+                    value_column VARCHAR(255) NOT NULL,
+                    predicted_value DECIMAL(15, 2) NOT NULL,
+                    UNIQUE KEY unique_prediction (product_id, export_id, date, value_column)
+                );
+            """
+        },
+        {
+            "name": "outliers",
+            "query": """
+                CREATE TABLE IF NOT EXISTS outliers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    original_table VARCHAR(255),
+                    column_name VARCHAR(255),
+                    outlier_value DOUBLE,
+                    primary_key_id INT,
+                    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """
+        }
+    ]
 
-    try:
-        # Criando a tabela vendasprodutosexport
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS vendasprodutosexport (
-                ExportID INT AUTO_INCREMENT PRIMARY KEY,
-                CodigoVenda INT,
-                CodigoProduto INT,
-                UNVenda VARCHAR(10),
-                Quantidade DOUBLE,
-                ValorTabela DECIMAL(15, 2),
-                ValorUnitario DECIMAL(15, 2),
-                ValorTotal DECIMAL(15, 2),
-                Desconto DOUBLE,
-                CodigoSecao INT,
-                CodigoGrupo INT,
-                CodigoSubGrupo INT,
-                CodigoFabricante INT,
-                ValorCusto DECIMAL(15, 2),
-                ValorCustoGerencial DECIMAL(15, 2),
-                Cancelada BOOLEAN,
-                PrecoemPromocao BOOLEAN
-            );
-        """)
-        tables_created.append("vendasprodutosexport")
+    for table in tables_to_create:
+        try:
+            db_manager.execute_query(table["query"])
+            logger.info(f"Tabela '{table['name']}' verificada/criada com sucesso.")
+        except Exception as e:
+            logger.error(f"Erro ao criar/verificar a tabela '{table['name']}': {e}")
 
-        # Criando a tabela vendasexport
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS vendasexport (
-                ExportID INT AUTO_INCREMENT PRIMARY KEY,
-                Codigo INT,
-                Data DATE,
-                Hora TIME,
-                CodigoCliente INT,
-                Status VARCHAR(10),
-                TotalPedido DECIMAL(15, 2),
-                Endereco VARCHAR(255),
-                Numero VARCHAR(50),
-                Bairro VARCHAR(100),
-                Cidade VARCHAR(100),
-                UF VARCHAR(2),
-                CEP VARCHAR(10),
-                TotalCusto DECIMAL(15, 2),
-                Rentabilidade DECIMAL(15, 2)
-            );
-        """)
-        tables_created.append("vendasexport")
-
-        # Criando a tabela promotions_identified
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS promotions_identified (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                CodigoProduto INT NOT NULL,
-                DataInicioPromocao DATE NOT NULL,
-                DataFimPromocao DATE NOT NULL,
-                ValorUnitario DECIMAL(10, 2) NOT NULL,
-                ValorTabela DECIMAL(10, 2) NOT NULL,
-                UNIQUE KEY unique_promocao (CodigoProduto)
-            );
-        """)
-        tables_created.append("promotions_identified")
-
-        # Criando a tabela sales_indicators
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS sales_indicators (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                CodigoProduto INT NOT NULL,
-                DataInicioPromocao DATE NOT NULL,
-                DataFimPromocao DATE NOT NULL,
-                QuantidadeTotal INT,
-                ValorTotalVendido DECIMAL(10,2),
-                TicketMedio DECIMAL(10,2)
-            );
-        """)
-        tables_created.append("sales_indicators")
-
-        # Criando a tabela price_forecasts
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS price_forecasts (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                CodigoProduto INT NOT NULL,
-                Data DATE NOT NULL,
-                ValorUnitario DECIMAL(10, 2) NOT NULL,
-                PrevisaoARIMA DECIMAL(10, 2),
-                PrevisaoRNN DECIMAL(10, 2),
-                UNIQUE KEY unique_forecast (CodigoProduto, Data)
-            );
-        """)
-        tables_created.append("price_forecasts")
-
-        # Criando a tabela model_config para armazenar configurações de diferentes modelos
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS model_config (
-                config_id INT AUTO_INCREMENT PRIMARY KEY,
-                product_id INT NOT NULL,
-                export_id INT,
-                value_column VARCHAR(255),
-                model_type VARCHAR(50),
-                parameters TEXT,
-                aic FLOAT,
-                bic FLOAT,
-                date_executed DATETIME,
-                INDEX idx_product (product_id),
-                INDEX idx_export (export_id)
-            );
-        """)
-        tables_created.append("model_config")
-
-        # Criando a tabela arima_predictions
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS arima_predictions (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                product_id INT NOT NULL,
-                export_id INT NOT NULL,
-                date DATE NOT NULL,
-                value_column VARCHAR(255) NOT NULL,
-                predicted_value DECIMAL(15, 2) NOT NULL,
-                UNIQUE KEY unique_prediction (product_id, export_id, date, value_column)
-            );
-        """)
-        tables_created.append("arima_predictions")
-
-        # Criando a tabela outliers
-        db_manager.execute_query("""
-            CREATE TABLE IF NOT EXISTS outliers (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                original_table VARCHAR(255),
-                column_name VARCHAR(255),
-                outlier_value DOUBLE,
-                primary_key_id INT,
-                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        tables_created.append("outliers")
-
-        logger.info(f"Tabelas verificadas/criadas com sucesso: {', '.join(tables_created)}.")
-
-    except Exception as e:
-        logger.error(f"Erro ao criar tabelas: {e}")
 
 def drop_tables():
     """
     Exclui todas as tabelas no banco de dados.
     """
-    try:
-        db_manager.execute_query("DROP TABLE IF EXISTS sales_indicators")
-        logger.info("Tabela sales_indicators excluída com sucesso.")
+    tables_to_drop = [
+        "sales_indicators",
+        "promotions_identified",
+        "vendasexport",
+        "vendasprodutosexport",
+        "price_forecasts",
+        "model_config",
+        "arima_predictions",
+        "outliers"
+    ]
 
-        db_manager.execute_query("DROP TABLE IF EXISTS promotions_identified")
-        logger.info("Tabela promotions_identified excluída com sucesso.")
+    for table in tables_to_drop:
+        try:
+            db_manager.execute_query(f"DROP TABLE IF EXISTS {table}")
+            logger.info(f"Tabela '{table}' excluída com sucesso.")
+        except Exception as e:
+            logger.error(f"Erro ao excluir a tabela '{table}': {e}")
 
-        db_manager.execute_query("DROP TABLE IF EXISTS vendasexport")
-        logger.info("Tabela vendasexport excluída com sucesso.")
-
-        db_manager.execute_query("DROP TABLE IF EXISTS vendasprodutosexport")
-        logger.info("Tabela vendasprodutosexport excluída com sucesso.")
-
-        db_manager.execute_query("DROP TABLE IF EXISTS price_forecasts")
-        logger.info("Tabela price_forecasts excluída com sucesso.")
-
-        db_manager.execute_query("DROP TABLE IF EXISTS model_config")
-        logger.info("Tabela model_config excluída com sucesso.")
-
-        db_manager.execute_query("DROP TABLE IF EXISTS arima_predictions")
-        logger.info("Tabela arima_predictions excluída com sucesso.")
-
-        db_manager.execute_query("DROP TABLE IF EXISTS outliers")
-        logger.info("Tabela outliers excluída com sucesso.")
-
-    except Exception as e:
-        logger.error(f"Erro ao excluir tabelas: {e}")
 
 def insert_data():
     """
     Insere dados nas tabelas vendasprodutosexport e vendasexport.
     """
-    try:
-        # Populando a tabela vendasprodutosexport com dados
-        db_manager.execute_query("""
-            INSERT INTO vendasprodutosexport (CodigoVenda, CodigoProduto, UNVenda, Quantidade, ValorTabela, ValorUnitario, ValorTotal, Desconto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, ValorCusto, ValorCustoGerencial, Cancelada, PrecoemPromocao)
-            SELECT CodigoVenda, CodigoProduto, UNVenda, Quantidade, LEAST(ValorTabela, 999999.99), LEAST(ValorUnitario, 999999.99), LEAST(ValorTotal, 9999999.99), LEAST(Desconto, 9999999.99), CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, LEAST(ValorCusto, 999999.99), LEAST(ValorCustoGerencial, 999999.99), Cancelada, PrecoemPromocao FROM vendasprodutos;
-        """)
-        logger.info("Dados inseridos com sucesso na tabela vendasprodutosexport.")
+    insert_queries = [
+        {
+            "table": "vendasprodutosexport",
+            "query": """
+                INSERT INTO vendasprodutosexport (
+                    CodigoVenda, CodigoProduto, UNVenda, Quantidade, ValorTabela, 
+                    ValorUnitario, ValorTotal, Desconto, CodigoSecao, CodigoGrupo, 
+                    CodigoSubGrupo, CodigoFabricante, ValorCusto, ValorCustoGerencial, 
+                    Cancelada, PrecoemPromocao
+                ) 
+                SELECT 
+                    CodigoVenda, CodigoProduto, UNVenda, Quantidade, 
+                    LEAST(ValorTabela, 999999.99), LEAST(ValorUnitario, 999999.99), 
+                    LEAST(ValorTotal, 9999999.99), LEAST(Desconto, 9999999.99), 
+                    CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, 
+                    LEAST(ValorCusto, 999999.99), LEAST(ValorCustoGerencial, 999999.99), 
+                    Cancelada, PrecoemPromocao 
+                FROM vendasprodutos;
+            """
+        },
+        {
+            "table": "vendasexport",
+            "query": """
+                INSERT INTO vendasexport (
+                    Codigo, Data, Hora, CodigoCliente, Status, 
+                    TotalPedido, Endereco, Numero, Bairro, Cidade, 
+                    UF, CEP, TotalCusto, Rentabilidade
+                ) 
+                SELECT 
+                    Codigo, Data, Hora, CodigoCliente, Status, 
+                    LEAST(TotalPedido, 9999999.99), Endereco, Numero, Bairro, Cidade, 
+                    UF, CEP, LEAST(TotalCusto, 999999.99), LEAST(Rentabilidade, 999999.99) 
+                FROM vendas;
+            """
+        }
+    ]
 
-        # Populando a tabela vendasexport com dados
-        db_manager.execute_query("""
-            INSERT INTO vendasexport (Codigo, Data, Hora, CodigoCliente, Status, TotalPedido, Endereco, Numero, Bairro, Cidade, UF, CEP, TotalCusto, Rentabilidade)
-            SELECT Codigo, Data, Hora, CodigoCliente, Status, LEAST(TotalPedido, 9999999.99), Endereco, Numero, Bairro, Cidade, UF, CEP, LEAST(TotalCusto, 999999.99), LEAST(Rentabilidade, 999999.99) FROM vendas;
-        """)
-        logger.info("Dados inseridos com sucesso na tabela vendasexport.")
+    for query in insert_queries:
+        try:
+            db_manager.execute_query(query["query"])
+            logger.info(f"Dados inseridos com sucesso na tabela '{query['table']}'.")
+        except Exception as e:
+            logger.error(f"Erro ao inserir dados na tabela '{query['table']}': {e}")
 
-    except Exception as e:
-        logger.error(f"Erro ao inserir dados: {e}")
 
 def configure_indexes():
     """
     Configura os índices nas tabelas de vendas.
     """
-    indexes_vendasexport = [
-        ("idx_codigo", "vendasexport", "Codigo"),
-        ("idx_data", "vendasexport", "Data"),
-        ("idx_codigocliente", "vendasexport", "CodigoCliente"),
-        ("idx_data_codigocliente", "vendasexport", "Data, CodigoCliente"),
-        ("idx_totalpedido", "vendasexport", "TotalPedido"),
+    indexes = [
+        {"name": "idx_codigo", "table": "vendasexport", "columns": "Codigo"},
+        {"name": "idx_data", "table": "vendasexport", "columns": "Data"},
+        {"name": "idx_codigocliente", "table": "vendasexport", "columns": "CodigoCliente"},
+        {"name": "idx_data_codigocliente", "table": "vendasexport", "columns": "Data, CodigoCliente"},
+        {"name": "idx_totalpedido", "table": "vendasexport", "columns": "TotalPedido"},
+        {"name": "idx_vendasprodutosexport_codigovenda", "table": "vendasprodutosexport", "columns": "CodigoVenda"},
+        {"name": "idx_vendasprodutosexport_codigoproduto", "table": "vendasprodutosexport", "columns": "CodigoProduto"},
+        {"name": "idx_vendasprodutosexport_codigosecao", "table": "vendasprodutosexport", "columns": "CodigoSecao"},
+        {"name": "idx_vendasprodutosexport_codigogrupo", "table": "vendasprodutosexport", "columns": "CodigoGrupo"},
+        {"name": "idx_vendasprodutosexport_codigosubgrupo", "table": "vendasprodutosexport", "columns": "CodigoSubGrupo"},
+        {"name": "idx_vendasprodutosexport_secaogrupo", "table": "vendasprodutosexport", "columns": "CodigoSecao, CodigoGrupo"},
+        {"name": "idx_vendasprodutosexport_valorunitario", "table": "vendasprodutosexport", "columns": "ValorUnitario"},
+        {"name": "idx_vendasprodutosexport_quantidade", "table": "vendasprodutosexport", "columns": "Quantidade"},
+        {"name": "idx_vendasprodutosexport_desconto", "table": "vendasprodutosexport", "columns": "Desconto"},
+        {"name": "idx_vendasprodutosexport_precoempromocao", "table": "vendasprodutosexport", "columns": "PrecoemPromocao"}
     ]
 
-    indexes_vendasprodutosexport = [
-        ("idx_vendasprodutosexport_codigovenda", "vendasprodutosexport", "CodigoVenda"),
-        ("idx_vendasprodutosexport_codigoproduto", "vendasprodutosexport", "CodigoProduto"),
-        ("idx_vendasprodutosexport_codigosecao", "vendasprodutosexport", "CodigoSecao"),
-        ("idx_vendasprodutosexport_codigogrupo", "vendasprodutosexport", "CodigoGrupo"),
-        ("idx_vendasprodutosexport_codigosubgrupo", "vendasprodutosexport", "CodigoSubGrupo"),
-        ("idx_vendasprodutosexport_secaogrupo", "vendasprodutosexport", "CodigoSecao, CodigoGrupo"),
-        ("idx_vendasprodutosexport_valorunitario", "vendasprodutosexport", "ValorUnitario"),
-        ("idx_vendasprodutosexport_quantidade", "vendasprodutosexport", "Quantidade"),
-        ("idx_vendasprodutosexport_desconto", "vendasprodutosexport", "Desconto"),
-        ("idx_vendasprodutosexport_precoempromocao", "vendasprodutosexport", "PrecoemPromocao"),
-    ]
-
-    create_indexes(indexes_vendasprodutosexport + indexes_vendasexport)
-
-def create_indexes(indexes):
-    """
-    Cria índices nas tabelas especificadas.
-
-    Args:
-        indexes (list): Uma lista de tuplas, onde cada tupla contém:
-            (nome_do_índice, nome_da_tabela, colunas_do_índice)
-    """
-    for index_name, table_name, columns in indexes:
+    for index in indexes:
         try:
-            db_manager.execute_query(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({columns})")
-            logger.info(f"Índice {index_name} criado com sucesso na tabela {table_name}.")
+            db_manager.execute_query(f"CREATE INDEX IF NOT EXISTS {index['name']} ON {index['table']} ({index['columns']})")
+            logger.info(f"Índice '{index['name']}' criado com sucesso na tabela '{index['table']}'.")
         except Exception as e:
-            logger.error(f"Erro ao criar índice {index_name} na tabela {table_name}: {e}")
+            logger.error(f"Erro ao criar índice '{index['name']}' na tabela '{index['table']}': {e}")
+
