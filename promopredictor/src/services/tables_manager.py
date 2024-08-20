@@ -82,7 +82,12 @@ def create_tables():
                     ValorTotalVendido DECIMAL(10, 2) NOT NULL,
                     ValorCusto DECIMAL(10, 2) NOT NULL,
                     TotalVendaCompleta DECIMAL(15, 2) NOT NULL,
+                    ValorTabela DECIMAL(10, 2) NOT NULL,
+                    ValorUnitarioVendido DECIMAL(10, 2) NOT NULL,
                     TicketMedio DECIMAL(10, 2) NOT NULL,
+                    MargemLucro DECIMAL(10, 2) NOT NULL,
+                    PercentualDescontoMedio DECIMAL(5, 2) NOT NULL,
+                    ElasticidadePrecoDemanda DECIMAL(10, 2) DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (PromotionId) REFERENCES promotions_identified(id)
                 );

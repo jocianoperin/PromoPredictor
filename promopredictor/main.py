@@ -43,7 +43,7 @@ def main():
             "valorcusto IS NULL OR valorcusto <= 0"
         ])
 
-         # Verificação de tipos de dados
+        # Verificação de tipos de dados
         column_types = {'valorunitario': 'DECIMAL(10,2)'}
         check_data_types('vendasprodutosexport', column_types)
         column_types = {'data': 'DATE'}
