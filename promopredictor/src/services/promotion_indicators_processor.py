@@ -59,13 +59,11 @@ def calculate_promotion_indicators():
             logger.info(f"Colunas disponíveis em df_sales após o merge: {df_sales.columns.tolist()}")
             logger.info(f"Colunas disponíveis em df_historical_sales: {df_historical_sales.columns.tolist()}")
 
-            # Verificar se a coluna 'Data' foi renomeada após o merge
-            if 'Data_x' in df_sales.columns:
-                data_column = 'Data_x'
-            elif 'data' in df_sales.columns:
+            # Acessar a coluna 'data' corretamente
+            if 'data' in df_sales.columns:
                 data_column = 'data'
             else:
-                logger.error("A coluna 'Data' não está presente no DataFrame 'df_sales'.")
+                logger.error("A coluna 'data' não está presente no DataFrame 'df_sales'.")
                 return False
 
             # Processamento paralelo para cálculo de indicadores
@@ -121,7 +119,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
         # Filtrar vendas antes da promoção
         sales_before_promo = df_historical_sales[
             (df_historical_sales['CodigoProduto'] == product_code) &
-            (df_historical_sales['Data'] < start_date)
+            (df_historical_sales['data'] < start_date)
         ]
 
         logger.info(f"Vendas antes da promoção: {sales_before_promo.shape[0]} linhas")
