@@ -13,8 +13,15 @@ def insert_indicators(row):
     """
     try:
         insert_query = f"""
-        INSERT INTO sales_indicators (PromotionId, CodigoProduto, DataInicioPromocao, DataFimPromocao, QuantidadeTotal, ValorTotalVendido, ValorCusto, ValorTabela, ValorUnitarioVendido, TotalVendaCompleta, TicketMedio, MargemLucro, PercentualDescontoMedio, ElasticidadePrecoDemanda) 
-        VALUES ({row['PromotionId']}, {row['CodigoProduto']}, '{row['DataInicioPromocao']}', '{row['DataFimPromocao']}', {row['QuantidadeTotal']}, {row['ValorTotalVendido']}, {row['ValorCusto']}, {row['ValorTabela']}, {row['ValorUnitarioVendido']}, {row['TotalVendaCompleta']}, {row['TicketMedio']}, {row['MargemLucro']}, {row['PercentualDescontoMedio']}, {row['ElasticidadePrecoDemanda']})
+        INSERT INTO sales_indicators (PromotionId, CodigoProduto, DataInicioPromocao, DataFimPromocao, QuantidadeTotal, 
+                                      ValorTotalVendido, ValorCusto, ValorTabela, ValorUnitarioVendido, TotalVendaCompleta, 
+                                      TicketMedio, MargemLucro, PercentualDescontoMedio, ElasticidadePrecoDemanda, 
+                                      EstoqueMedioAntesPromocao, EstoqueNoDiaPromocao) 
+        VALUES ({row['PromotionId']}, {row['CodigoProduto']}, '{row['DataInicioPromocao']}', '{row['DataFimPromocao']}', 
+                {row['QuantidadeTotal']}, {row['ValorTotalVendido']}, {row['ValorCusto']}, {row['ValorTabela']}, 
+                {row['ValorUnitarioVendido']}, {row['TotalVendaCompleta']}, {row['TicketMedio']}, {row['MargemLucro']}, 
+                {row['PercentualDescontoMedio']}, {row['ElasticidadePrecoDemanda']}, {row['EstoqueMedioAntesPromocao']}, 
+                {row['EstoqueNoDiaPromocao']})
         """
         db_manager.execute_query(insert_query)
         thread_id = threading.get_ident()
@@ -22,6 +29,50 @@ def insert_indicators(row):
     except Exception as e:
         thread_id = threading.get_ident()
         logger.error(f"[Thread-{thread_id}] Erro ao inserir indicador: {e}")
+
+def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
+    """
+    Calcula o estoque médio antes da promoção e o estoque no dia da promoção para um produto específico.
+    
+    Args:
+        codigo_produto (int): O código do produto.
+        data_inicio_promocao (str): A data de início da promoção (formato 'YYYY-MM-DD').
+    
+    Retorna:
+        dict: Um dicionário contendo 'estoque_medio_antes_promocao' e 'estoque_no_dia_promocao'.
+    """
+    try:
+        # Calcular estoque médio antes da promoção
+        query_estoque_medio = f"""
+            SELECT AVG(EstoqueAtual) AS EstoqueMedioAntesPromocao
+            FROM auditoriaestoquexport
+            WHERE CodigoProduto = {codigo_produto} AND DataHora < '{data_inicio_promocao}';
+        """
+        result_medio = db_manager.execute_query(query_estoque_medio)
+        estoque_medio_antes_promocao = result_medio['data'][0][0] if result_medio['data'] else 0
+
+        # Calcular estoque no dia da promoção
+        query_estoque_no_dia = f"""
+            SELECT EstoqueAtual
+            FROM auditoriaestoquexport
+            WHERE CodigoProduto = {codigo_produto} AND DataHora <= '{data_inicio_promocao} 23:59:59'
+            ORDER BY DataHora DESC
+            LIMIT 1;
+        """
+        result_dia = db_manager.execute_query(query_estoque_no_dia)
+        estoque_no_dia_promocao = result_dia['data'][0][0] if result_dia['data'] else 0
+
+        return {
+            'estoque_medio_antes_promocao': estoque_medio_antes_promocao,
+            'estoque_no_dia_promocao': estoque_no_dia_promocao
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao calcular estoques para a promoção: {e}")
+        return {
+            'estoque_medio_antes_promocao': 0,
+            'estoque_no_dia_promocao': 0
+        }
 
 def calculate_promotion_indicators():
     """
@@ -160,6 +211,9 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
             elasticidade_preco_demanda = change_in_quantity / change_in_price if change_in_price != 0 else None
         else:
             elasticidade_preco_demanda = None
+
+        # Calcular Estoque Médio Antes da Promoção e Estoque no Dia da Promoção
+        estoques = calcular_estoque_para_promocao(product_code, start_date)
         
         # Preparar linha para inserção
         indicator_row = {
@@ -176,7 +230,9 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
             'TicketMedio': ticket_medio,
             'MargemLucro': margem_lucro,
             'PercentualDescontoMedio': percentual_desconto_medio,
-            'ElasticidadePrecoDemanda': elasticidade_preco_demanda
+            'ElasticidadePrecoDemanda': elasticidade_preco_demanda,
+            'EstoqueMedioAntesPromocao': estoques['estoque_medio_antes_promocao'],
+            'EstoqueNoDiaPromocao': estoques['estoque_no_dia_promocao']
         }
         
         # Inserir indicadores no banco de dados

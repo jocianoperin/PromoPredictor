@@ -55,6 +55,17 @@ def create_tables():
             """
         },
         {
+            "name": "estoque_diario",
+            "query": """
+                CREATE TABLE IF NOT EXISTS estoque_diario (
+                    Data DATE NOT NULL,
+                    CodigoProduto INT NOT NULL,
+                    EstoqueInicial DOUBLE,
+                    PRIMARY KEY (Data, CodigoProduto)
+                );
+            """
+        },
+        {
             "name": "promotions_identified",
             "query": """
                 CREATE TABLE IF NOT EXISTS promotions_identified (
@@ -88,8 +99,67 @@ def create_tables():
                     MargemLucro DECIMAL(10, 2) NOT NULL,
                     PercentualDescontoMedio DECIMAL(5, 2) NOT NULL,
                     ElasticidadePrecoDemanda DECIMAL(10, 2) DEFAULT NULL,
+                    EstoqueMedioAntesPromocao DOUBLE DEFAULT NULL,
+                    EstoqueNoDiaPromocao DOUBLE DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (PromotionId) REFERENCES promotions_identified(id)
+                );
+            """
+        },
+        {
+            "name": "produtosexport",
+            "query": """
+                CREATE TABLE IF NOT EXISTS produtosexport (
+                    Codigo INT(10) UNSIGNED PRIMARY KEY,
+                    CodigoBarras VARCHAR(15),
+                    Referencia VARCHAR(30),
+                    DataCadastro DATE,
+                    Descricao VARCHAR(120),
+                    CodigoFabricante INT(11),
+                    Fabricante VARCHAR(30),
+                    Detalhamento VARCHAR(250),
+                    UNVenda VARCHAR(6),
+                    UNCompra VARCHAR(6),
+                    QuantidadeCX DOUBLE,
+                    EstoqueMinimo DOUBLE,
+                    EstoqueIdeal DOUBLE,
+                    ValorCusto DOUBLE,
+                    OutrosCustos DOUBLE,
+                    CustoFinal DOUBLE,
+                    PercentualT1 DOUBLE,
+                    VendaT1 DOUBLE,
+                    CodigoCadeiaPreco INT(10) UNSIGNED,
+                    CadeiaPreco VARCHAR(75),
+                    CodigoSecao INT(10) UNSIGNED,
+                    Secao VARCHAR(30),
+                    CodigoGrupo INT(10) UNSIGNED,
+                    Grupo VARCHAR(30),
+                    CodigoSubGrupo INT(10) UNSIGNED,
+                    SubGrupo VARCHAR(30),
+                    Status VARCHAR(1),
+                    NComercializavel TINYINT(1) UNSIGNED
+                );
+            """
+        },
+        {
+            "name": "auditoriaestoquexport",
+            "query": """
+                CREATE TABLE IF NOT EXISTS auditoriaestoquexport (
+                    ID INT AUTO_INCREMENT PRIMARY KEY,
+                    DataHora DATETIME,
+                    CodigoProduto INT(10) UNSIGNED,
+                    EstoqueAtual DOUBLE
+                );
+            """
+        },
+        {
+            "name": "registro_estoque",
+            "query": """
+                CREATE TABLE IF NOT EXISTS registro_estoque (
+                    Data DATE NOT NULL,
+                    CodigoProduto INT NOT NULL,
+                    EstoqueAtual DECIMAL(15, 2) NOT NULL,
+                    PRIMARY KEY (Data, CodigoProduto)
                 );
             """
         }
@@ -111,7 +181,9 @@ def drop_tables():
         "sales_indicators",
         "promotions_identified",
         "vendasexport",
-        "vendasprodutosexport"
+        "vendasprodutosexport",
+        "produtosexport",
+        "auditoriaestoquexport"
     ]
 
     for table in tables_to_drop:
@@ -160,6 +232,38 @@ def insert_data():
                     UF, CEP, LEAST(TotalCusto, 999999.99), LEAST(Rentabilidade, 999999.99) 
                 FROM vendas;
             """
+        },
+        {
+            "table": "produtosexport",
+            "query": """
+                INSERT INTO produtosexport (
+                    Codigo, CodigoBarras, Referencia, DataCadastro, Descricao, 
+                    CodigoFabricante, Fabricante, Detalhamento, UNVenda, UNCompra, 
+                    QuantidadeCX, EstoqueMinimo, EstoqueIdeal, ValorCusto, OutrosCustos, 
+                    CustoFinal, PercentualT1, VendaT1, CodigoCadeiaPreco, CadeiaPreco, 
+                    CodigoSecao, Secao, CodigoGrupo, Grupo, CodigoSubGrupo, SubGrupo, 
+                    Status, NComercializavel
+                )
+                SELECT 
+                    Codigo, CodigoBarras, Referencia, DataCadastro, Descricao, 
+                    CodigoFabricante, Fabricante, Detalhamento, UNVenda, UNCompra, 
+                    QuantidadeCX, EstoqueMinimo, EstoqueIdeal, ValorCusto, OutrosCustos, 
+                    CustoFinal, PercentualT1, VendaT1, CodigoCadeiaPreco, CadeiaPreco, 
+                    CodigoSecao, Secao, CodigoGrupo, Grupo, CodigoSubGrupo, SubGrupo, 
+                    Status, NComercializavel
+                FROM produtos;
+            """
+        },
+        {
+            "table": "auditoriaestoquexport",
+            "query": """
+                INSERT INTO auditoriaestoquexport (
+                    DataHora, CodigoProduto, EstoqueAtual
+                )
+                SELECT 
+                    DataHora, CodigoProduto, EstoqueAtual
+                FROM auditoriaestoque;
+            """
         }
     ]
 
@@ -190,7 +294,10 @@ def configure_indexes():
         {"name": "idx_vendasprodutosexport_valorunitario", "table": "vendasprodutosexport", "columns": "ValorUnitario"},
         {"name": "idx_vendasprodutosexport_quantidade", "table": "vendasprodutosexport", "columns": "Quantidade"},
         {"name": "idx_vendasprodutosexport_desconto", "table": "vendasprodutosexport", "columns": "Desconto"},
-        {"name": "idx_vendasprodutosexport_precoempromocao", "table": "vendasprodutosexport", "columns": "PrecoemPromocao"}
+        {"name": "idx_vendasprodutosexport_precoempromocao", "table": "vendasprodutosexport", "columns": "PrecoemPromocao"},
+        {"name": "idx_codigo_produtosexport", "table": "produtosexport", "columns": "Codigo"},
+        {"name": "idx_codigoproduto_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "CodigoProduto"},
+        {"name": "idx_data_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "DataHora"}
     ]
 
     for index in indexes:
@@ -199,4 +306,3 @@ def configure_indexes():
             logger.info(f"Índice '{index['name']}' criado com sucesso na tabela '{index['table']}'.")
         except Exception as e:
             logger.error(f"Erro ao criar índice '{index['name']}' na tabela '{index['table']}': {e}")
-
