@@ -87,65 +87,6 @@ def create_tables():
                     FOREIGN KEY (PromotionId) REFERENCES promotions_identified(id)
                 );
             """
-        },
-        {
-            "name": "price_forecasts",
-            "query": """
-                CREATE TABLE IF NOT EXISTS price_forecasts (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    CodigoProduto INT NOT NULL,
-                    Data DATE NOT NULL,
-                    ValorUnitario DECIMAL(10, 2) NOT NULL,
-                    PrevisaoARIMA DECIMAL(10, 2),
-                    PrevisaoRNN DECIMAL(10, 2),
-                    UNIQUE KEY unique_forecast (CodigoProduto, Data)
-                );
-            """
-        },
-        {
-            "name": "model_config",
-            "query": """
-                CREATE TABLE IF NOT EXISTS model_config (
-                    config_id INT AUTO_INCREMENT PRIMARY KEY,
-                    product_id INT NOT NULL,
-                    export_id INT,
-                    value_column VARCHAR(255),
-                    model_type VARCHAR(50),
-                    parameters TEXT,
-                    aic FLOAT,
-                    bic FLOAT,
-                    date_executed DATETIME,
-                    INDEX idx_product (product_id),
-                    INDEX idx_export (export_id)
-                );
-            """
-        },
-        {
-            "name": "arima_predictions",
-            "query": """
-                CREATE TABLE IF NOT EXISTS arima_predictions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    product_id INT NOT NULL,
-                    export_id INT NOT NULL,
-                    date DATE NOT NULL,
-                    value_column VARCHAR(255) NOT NULL,
-                    predicted_value DECIMAL(15, 2) NOT NULL,
-                    UNIQUE KEY unique_prediction (product_id, export_id, date, value_column)
-                );
-            """
-        },
-        {
-            "name": "outliers",
-            "query": """
-                CREATE TABLE IF NOT EXISTS outliers (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    original_table VARCHAR(255),
-                    column_name VARCHAR(255),
-                    outlier_value DOUBLE,
-                    primary_key_id INT,
-                    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """
         }
     ]
 
@@ -165,11 +106,7 @@ def drop_tables():
         "sales_indicators",
         "promotions_identified",
         "vendasexport",
-        "vendasprodutosexport",
-        "price_forecasts",
-        "model_config",
-        "arima_predictions",
-        "outliers"
+        "vendasprodutosexport"
     ]
 
     for table in tables_to_drop:
