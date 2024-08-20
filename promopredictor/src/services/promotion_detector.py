@@ -1,5 +1,6 @@
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
+import threading
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 
@@ -53,8 +54,11 @@ def process_group(group, window_size, threshold):
     Processa um grupo de produtos para detectar promoções.
     Agora verifica também se o produto está marcado como em promoção e se o valor é inferior ao de tabela.
     """
+    thread_id = threading.get_ident()
     group = group.sort_values(by='Data')
     group['PriceChange'] = group['valorunitario'].pct_change(window_size)
+    
+    logger.info(f"[Thread-{thread_id}] Processando grupo de produtos: {group['CodigoProduto'].iloc[0]}")
     
     # Nova condição para verificar se o produto está em promoção e se o valor unitário é menor que o valor de tabela
     group['Promotion'] = (
@@ -74,8 +78,9 @@ def insert_promotions(promotions_df):
     """
     try:
         for _, row in promotions_df.iterrows():
+            thread_id = threading.get_ident()
             # Log de diagnóstico adicional
-            logger.debug(f"Processando promoção: CodigoProduto={row['CodigoProduto']}, Data={row['Data'].date()}, valorunitario={row['valorunitario']}, ValorTabela={row['ValorTabela']}")
+            logger.debug(f"[Thread-{thread_id}] Processando promoção: CodigoProduto={row['CodigoProduto']}, Data={row['Data'].date()}, valorunitario={row['valorunitario']}, ValorTabela={row['ValorTabela']}")
 
             # Verificar se já existe uma promoção com os mesmos detalhes
             check_query = f"""
@@ -91,7 +96,7 @@ def insert_promotions(promotions_df):
             
             if result['data']:
                 # Promoção já existe, nenhum novo registro será criado
-                logger.info(f"Promoção já existente para CodigoProduto: {row['CodigoProduto']}, Data: {row['Data'].date()}")
+                logger.info(f"[Thread-{thread_id}] Promoção já existente para CodigoProduto: {row['CodigoProduto']}, Data: {row['Data'].date()}")
                 continue
             else:
                 # Se não existe, inserir um novo registro
@@ -100,6 +105,6 @@ def insert_promotions(promotions_df):
                 VALUES ({row['CodigoProduto']}, '{row['Data'].date()}', '{row['Data'].date()}', {row['valorunitario']}, {row['ValorCusto']}, {row['ValorTabela']})
                 """
                 db_manager.execute_query(insert_query)
-        logger.info("Promoções inseridas/atualizadas na tabela promotions_identified com sucesso.")
+        logger.info("[Thread-{thread_id}] Promoções inseridas/atualizadas na tabela promotions_identified com sucesso.")
     except Exception as e:
-        logger.error(f"Erro ao inserir/atualizar promoções na tabela: {e}")
+        logger.error(f"[Thread-{thread_id}] Erro ao inserir/atualizar promoções na tabela: {e}")

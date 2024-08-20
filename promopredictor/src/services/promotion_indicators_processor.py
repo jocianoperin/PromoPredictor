@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 
@@ -16,9 +17,11 @@ def insert_indicators(row):
         VALUES ({row['PromotionId']}, {row['CodigoProduto']}, '{row['DataInicioPromocao']}', '{row['DataFimPromocao']}', {row['QuantidadeTotal']}, {row['ValorTotalVendido']}, {row['ValorCusto']}, {row['ValorTabela']}, {row['ValorUnitarioVendido']}, {row['TotalVendaCompleta']}, {row['TicketMedio']}, {row['MargemLucro']}, {row['PercentualDescontoMedio']}, {row['ElasticidadePrecoDemanda']})
         """
         db_manager.execute_query(insert_query)
-        logger.info(f"Indicador inserido com sucesso para produto {row['CodigoProduto']} na promoção de {row['DataInicioPromocao']} a {row['DataFimPromocao']}")
+        thread_id = threading.get_ident()
+        logger.info(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {row['CodigoProduto']} na promoção de {row['DataInicioPromocao']} a {row['DataFimPromocao']}")
     except Exception as e:
-        logger.error(f"Erro ao inserir indicador: {e}")
+        thread_id = threading.get_ident()
+        logger.error(f"[Thread-{thread_id}] Erro ao inserir indicador: {e}")
 
 def calculate_promotion_indicators():
     """
@@ -34,7 +37,7 @@ def calculate_promotion_indicators():
         produtos_query = "SELECT * FROM vendasprodutosexport"
         historical_sales_query = """
             SELECT v.Codigo AS CodigoVenda, p.CodigoProduto, v.data, v.TotalPedido, 
-                   p.Quantidade, p.ValorUnitario, p.ValorTotal
+                   p.Quantidade, p.valorunitario, p.ValorTotal
             FROM vendasexport v
             INNER JOIN vendasprodutosexport p ON v.Codigo = p.CodigoVenda
             WHERE v.data < CURDATE()
@@ -66,6 +69,11 @@ def calculate_promotion_indicators():
                 logger.error("A coluna 'data' não está presente no DataFrame 'df_sales'.")
                 return False
 
+            # Verificar se a coluna 'valorunitario' está presente em df_sales
+            if 'valorunitario' not in df_sales.columns:
+                logger.error("A coluna 'valorunitario' não está presente no DataFrame 'df_sales'.")
+                return False
+
             # Processamento paralelo para cálculo de indicadores
             with ThreadPoolExecutor() as executor:
                 futures = []
@@ -87,9 +95,11 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
     Função auxiliar para calcular e inserir indicadores para uma promoção específica.
     """
     try:
+        thread_id = threading.get_ident()
+        
         # Verificar se a coluna CodigoProduto existe no DataFrame promo
         if 'CodigoProduto' not in promo:
-            logger.error("A coluna 'CodigoProduto' não está presente no DataFrame 'promo'.")
+            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'promo'.")
             return False
         
         start_date = promo['DataInicioPromocao']
@@ -99,7 +109,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
 
         # Verificar se a coluna CodigoProduto existe no DataFrame df_sales
         if 'CodigoProduto' not in df_sales.columns:
-            logger.error("A coluna 'CodigoProduto' não está presente no DataFrame 'df_sales'.")
+            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_sales'.")
             return False
         
         # Filtrar vendas dentro do período da promoção para o produto específico
@@ -109,11 +119,11 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
             (df_sales[data_column] <= end_date)
         ]
 
-        logger.info(f"Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
+        logger.info(f"[Thread-{thread_id}] Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
 
         # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
         if 'CodigoProduto' not in df_historical_sales.columns:
-            logger.error("A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
+            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
             return False
         
         # Filtrar vendas antes da promoção
@@ -122,7 +132,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
             (df_historical_sales['data'] < start_date)
         ]
 
-        logger.info(f"Vendas antes da promoção: {sales_before_promo.shape[0]} linhas")
+        logger.info(f"[Thread-{thread_id}] Vendas antes da promoção: {sales_before_promo.shape[0]} linhas")
 
         # Calcular indicadores
         quantity_total = float(sales_in_promo['Quantidade'].sum())
@@ -171,15 +181,15 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, data_c
         
         # Inserir indicadores no banco de dados
         insert_indicators(indicator_row)
-        logger.info(f"Indicador inserido com sucesso para produto {product_code} na promoção de {promo['DataInicioPromocao']} a {promo['DataFimPromocao']}")
+        logger.info(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {product_code} na promoção de {promo['DataInicioPromocao']} a {promo['DataFimPromocao']}")
 
         return True
     
     except KeyError as e:
-        logger.error(f"Erro ao acessar a chave {e} durante o cálculo dos indicadores.")
+        logger.error(f"[Thread-{thread_id}] Erro ao acessar a chave {e} durante o cálculo dos indicadores.")
         return False
     
     except Exception as e:
         # Capturar e logar o erro específico
-        logger.error(f"Erro inesperado ao calcular indicadores para produto {promo['CodigoProduto']}: {e}", exc_info=True)
+        logger.error(f"[Thread-{thread_id}] Erro inesperado ao calcular indicadores para produto {promo['CodigoProduto']}: {e}", exc_info=True)
         return False
