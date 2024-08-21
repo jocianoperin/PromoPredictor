@@ -55,17 +55,6 @@ def create_tables():
             """
         },
         {
-            "name": "estoque_diario",
-            "query": """
-                CREATE TABLE IF NOT EXISTS estoque_diario (
-                    Data DATE NOT NULL,
-                    CodigoProduto INT NOT NULL,
-                    EstoqueInicial DOUBLE,
-                    PRIMARY KEY (Data, CodigoProduto)
-                );
-            """
-        },
-        {
             "name": "promotions_identified",
             "query": """
                 CREATE TABLE IF NOT EXISTS promotions_identified (
@@ -101,6 +90,9 @@ def create_tables():
                     ElasticidadePrecoDemanda DECIMAL(10, 2) DEFAULT NULL,
                     EstoqueMedioAntesPromocao DOUBLE DEFAULT NULL,
                     EstoqueNoDiaPromocao DOUBLE DEFAULT NULL,
+                    ImpactoEmOutrasCategorias DECIMAL(10, 2) DEFAULT NULL,
+                    VolumeVendasPosPromocao DOUBLE DEFAULT NULL,
+                    ComparacaoComPromocoesPassadas DOUBLE DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (PromotionId) REFERENCES promotions_identified(id)
                 );
@@ -149,17 +141,6 @@ def create_tables():
                     DataHora DATETIME,
                     CodigoProduto INT(10) UNSIGNED,
                     EstoqueAtual DOUBLE
-                );
-            """
-        },
-        {
-            "name": "registro_estoque",
-            "query": """
-                CREATE TABLE IF NOT EXISTS registro_estoque (
-                    Data DATE NOT NULL,
-                    CodigoProduto INT NOT NULL,
-                    EstoqueAtual DECIMAL(15, 2) NOT NULL,
-                    PRIMARY KEY (Data, CodigoProduto)
                 );
             """
         }
