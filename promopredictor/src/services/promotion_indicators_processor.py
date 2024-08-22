@@ -288,9 +288,6 @@ def calculate_promotion_indicators():
             if 'Data' in df_sales.columns and 'data' not in df_sales.columns:
                 df_sales.rename(columns={'Data': 'data'}, inplace=True)
 
-            if 'Data' in df_historical_sales.columns and 'data' not in df_historical_sales.columns:
-                df_historical_sales.rename(columns={'Data': 'data'}, inplace=True)
-
             # Processamento paralelo para cálculo de indicadores
             with ThreadPoolExecutor() as executor:
                 futures = [executor.submit(calculate_and_insert_indicators, promo, df_sales, df_historical_sales, df_produtos, 'data') for _, promo in df_promotions.iterrows()]
@@ -345,8 +342,8 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
 
         # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
         if 'CodigoProduto' not in df_historical_sales.columns:
-            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
             logger.error(f"Colunas presentes: {df_historical_sales.columns.tolist()}")
+            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
             return False
 
         # Verificar se a coluna 'data' existe no DataFrame df_historical_sales
