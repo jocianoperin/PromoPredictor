@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import traceback
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 
@@ -31,6 +32,7 @@ def insert_indicators(row):
     except Exception as e:
         thread_id = threading.get_ident()
         logger.error(f"[Thread-{thread_id}] Erro ao inserir indicador: {e}")
+        logger.error(traceback.format_exc())
 
 def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
     """
@@ -44,6 +46,8 @@ def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
         dict: Um dicionário contendo 'estoque_medio_antes_promocao' e 'estoque_no_dia_promocao'.
     """
     try:
+        logger.debug(f"Iniciando cálculo do estoque para o produto {codigo_produto} na data de início {data_inicio_promocao}")
+
         # Calcular estoque médio antes da promoção
         query_estoque_medio = f"""
             SELECT AVG(EstoqueAtual) AS EstoqueMedioAntesPromocao
@@ -70,7 +74,8 @@ def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
         }
 
     except Exception as e:
-        logger.error(f"Erro ao calcular estoques para a promoção: {e}")
+        logger.error(f"Erro ao calcular estoques para a promoção (produto: {codigo_produto}, data_inicio_promocao: {data_inicio_promocao}): {e}")
+        logger.error(traceback.format_exc())
         return {
             'estoque_medio_antes_promocao': 0,
             'estoque_no_dia_promocao': 0
@@ -91,6 +96,8 @@ def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales,
         float: O impacto percentual nas outras categorias.
     """
     try:
+        logger.debug(f"Iniciando cálculo do impacto em outras categorias para a promoção: {promo['id']}")
+
         codigo_produto = promo['CodigoProduto']
         start_date = promo['DataInicioPromocao']
         end_date = promo['DataFimPromocao']
@@ -141,10 +148,12 @@ def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales,
 
     except KeyError as e:
         logger.error(f"Erro ao acessar a chave {e} no cálculo do impacto em outras categorias: {e}")
+        logger.error(traceback.format_exc())
         return 0.0
 
     except Exception as e:
-        logger.error(f"Erro ao calcular impacto em outras categorias: {e}")
+        logger.error(f"Erro ao calcular impacto em outras categorias para a promoção {promo['id']}: {e}")
+        logger.error(traceback.format_exc())
         return 0.0
 
 
@@ -160,13 +169,15 @@ def calcular_volume_pos_promocao(codigo_produto, data_fim_promocao):
         float: O volume de vendas após a promoção.
     """
     try:
+        logger.debug(f"Iniciando cálculo do volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}")
+
         # Verifique se data_fim_promocao é uma string ou um objeto datetime
-        if not isinstance(data_fim_promocao, (str, datetime)):
-            logger.error("data_fim_promocao precisa ser uma string ou um objeto datetime.")
+        if not isinstance(data_fim_promocao, (str, datetime.date)):
+            logger.error("data_fim_promocao precisa ser uma string ou um objeto datetime.date.")
             return 0.0
 
         # Converta `data_fim_promocao` para string se for um objeto `datetime.date`
-        if isinstance(data_fim_promocao, datetime):
+        if isinstance(data_fim_promocao, datetime.date):
             data_fim_promocao = data_fim_promocao.strftime('%Y-%m-%d')
 
         # Período de análise após a promoção (7 dias)
@@ -185,11 +196,13 @@ def calcular_volume_pos_promocao(codigo_produto, data_fim_promocao):
         return volume_pos_promocao
 
     except KeyError as e:
-        logger.error(f"Erro ao acessar a chave {e} no cálculo do volume pós-promoção: {e}")
+        logger.error(f"Erro ao acessar a chave {e} no cálculo do volume pós-promoção (produto: {codigo_produto}, data_fim_promocao: {data_fim_promocao}): {e}")
+        logger.error(traceback.format_exc())
         return 0.0
 
     except Exception as e:
-        logger.error(f"Erro ao calcular o volume de vendas pós-promoção: {e}")
+        logger.error(f"Erro ao calcular o volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}: {e}")
+        logger.error(traceback.format_exc())
         return 0.0
 
 
@@ -300,12 +313,12 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
     """
     try:
         thread_id = threading.get_ident()
-        
+
         # Verificar se a coluna CodigoProduto existe no DataFrame promo
         if 'CodigoProduto' not in promo:
             logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'promo'.")
             return False
-        
+
         start_date = promo['DataInicioPromocao']
         end_date = promo['DataFimPromocao']
         product_code = promo['CodigoProduto']
@@ -333,13 +346,14 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
         # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
         if 'CodigoProduto' not in df_historical_sales.columns:
             logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
+            logger.error(f"Colunas presentes: {df_historical_sales.columns.tolist()}")
             return False
 
         # Verificar se a coluna 'data' existe no DataFrame df_historical_sales
         if data_column not in df_historical_sales.columns:
             logger.error(f"[Thread-{thread_id}] A coluna '{data_column}' não está presente no DataFrame 'df_historical_sales'.")
             return False
-        
+
         # Filtrar vendas antes da promoção
         sales_before_promo = df_historical_sales[
             (df_historical_sales['CodigoProduto'] == product_code) &
@@ -356,11 +370,11 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
         valor_tabela = float(promo['ValorTabela']) if promo['ValorTabela'] is not None else 0.00
         total_venda_completa = float(sales_in_promo.groupby('CodigoVenda')['TotalPedido'].first().sum())
         ticket_medio = value_total_sold / quantity_total if quantity_total > 0 else 0
-        
+
         # Calcular Margem de Lucro
         lucro_bruto = value_total_sold - (valor_custo * quantity_total)
         margem_lucro = (lucro_bruto / value_total_sold) * 100 if value_total_sold > 0 else 0
-        
+
         # Calcular Percentual de Desconto Médio (Convertendo 'promo['ValorUnitario']' para float)
         valor_unitario_promocao = float(promo['ValorUnitario'])  # Converte para float
         percentual_desconto_medio = ((valor_tabela - valor_unitario_promocao) / valor_tabela) * 100
@@ -380,7 +394,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
 
         # Calcular o Impacto em Outras Categorias de Produtos
         impacto_categorias = calculate_category_impact(promo, df_sales, df_historical_sales, df_produtos, data_column)
-        
+
         # Calcular Volume de Vendas Pós-Promoção
         volume_pos_promocao = calcular_volume_pos_promocao(product_code, end_date)
 
@@ -409,17 +423,17 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
             'VolumeVendasPosPromocao': volume_pos_promocao,
             'ComparacaoComPromocoesPassadas': comparacao_passada['QuantidadeMediaPassada']  # ou o que for apropriado
         }
-        
+
         # Inserir indicadores no banco de dados
         insert_indicators(indicator_row)
         logger.info(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {product_code} na promoção de {promo['DataInicioPromocao']} a {promo['DataFimPromocao']}")
 
         return True
-    
+
     except KeyError as e:
         logger.error(f"[Thread-{thread_id}] Erro ao acessar a chave {e} durante o cálculo dos indicadores.")
         return False
-    
+
     except Exception as e:
         # Capturar e logar o erro específico
         logger.error(f"[Thread-{thread_id}] Erro inesperado ao calcular indicadores para produto {promo['CodigoProduto']}: {e}", exc_info=True)
