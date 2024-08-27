@@ -21,10 +21,6 @@ def create_tables():
                     ValorUnitario DECIMAL(15, 2),
                     ValorTotal DECIMAL(15, 2),
                     Desconto DOUBLE,
-                    CodigoSecao INT,
-                    CodigoGrupo INT,
-                    CodigoSubGrupo INT,
-                    CodigoFabricante INT,
                     ValorCusto DECIMAL(15, 2),
                     ValorCustoGerencial DECIMAL(15, 2),
                     Cancelada BOOLEAN,
@@ -185,15 +181,13 @@ def insert_data():
             "query": """
                 INSERT INTO vendasprodutosexport (
                     CodigoVenda, CodigoProduto, UNVenda, Quantidade, ValorTabela, 
-                    ValorUnitario, ValorTotal, Desconto, CodigoSecao, CodigoGrupo, 
-                    CodigoSubGrupo, CodigoFabricante, ValorCusto, ValorCustoGerencial, 
+                    ValorUnitario, ValorTotal, Desconto, ValorCusto, ValorCustoGerencial, 
                     Cancelada, PrecoemPromocao
                 ) 
                 SELECT 
                     CodigoVenda, CodigoProduto, UNVenda, Quantidade, 
                     LEAST(ValorTabela, 999999.99), LEAST(ValorUnitario, 999999.99), 
                     LEAST(ValorTotal, 9999999.99), LEAST(Desconto, 9999999.99), 
-                    CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, 
                     LEAST(ValorCusto, 999999.99), LEAST(ValorCustoGerencial, 999999.99), 
                     Cancelada, PrecoemPromocao 
                 FROM vendasprodutos;
@@ -268,10 +262,6 @@ def configure_indexes():
         {"name": "idx_totalpedido", "table": "vendasexport", "columns": "TotalPedido"},
         {"name": "idx_vendasprodutosexport_codigovenda", "table": "vendasprodutosexport", "columns": "CodigoVenda"},
         {"name": "idx_vendasprodutosexport_codigoproduto", "table": "vendasprodutosexport", "columns": "CodigoProduto"},
-        {"name": "idx_vendasprodutosexport_codigosecao", "table": "vendasprodutosexport", "columns": "CodigoSecao"},
-        {"name": "idx_vendasprodutosexport_codigogrupo", "table": "vendasprodutosexport", "columns": "CodigoGrupo"},
-        {"name": "idx_vendasprodutosexport_codigosubgrupo", "table": "vendasprodutosexport", "columns": "CodigoSubGrupo"},
-        {"name": "idx_vendasprodutosexport_secaogrupo", "table": "vendasprodutosexport", "columns": "CodigoSecao, CodigoGrupo"},
         {"name": "idx_vendasprodutosexport_valorunitario", "table": "vendasprodutosexport", "columns": "ValorUnitario"},
         {"name": "idx_vendasprodutosexport_quantidade", "table": "vendasprodutosexport", "columns": "Quantidade"},
         {"name": "idx_vendasprodutosexport_desconto", "table": "vendasprodutosexport", "columns": "Desconto"},

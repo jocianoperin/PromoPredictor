@@ -15,23 +15,23 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        # Dropar, criar e inserir dados nas tabelas necessárias
-        #drop_tables()
+        """# Dropar, criar e inserir dados nas tabelas necessárias
+        drop_tables()
         logger.info("Banco de dados limpo com sucesso.")
 
-        #create_tables()
+        create_tables()
         logger.info("Tabelas criadas com sucesso.")
 
-        #insert_data()
+        insert_data()
         logger.info("Tabelas atualizadas com sucesso.")
 
-        #configure_indexes()
+        configure_indexes()
         logger.info("Índices criados com sucesso.")
         
         logger.info("Iniciando a limpeza e processamento dos dados...")
 
         # Remoção de registros inválidos
-        """remove_invalid_records("vendasexport", [
+        remove_invalid_records("vendasexport", [
             "totalpedido IS NULL OR totalpedido <= 0",
             "totalcusto IS NULL OR totalcusto <= 0",
             "data IS NULL",
@@ -47,7 +47,7 @@ def main():
         column_types = {'valorunitario': 'DECIMAL(10,2)'}
         check_data_types('vendasprodutosexport', column_types)
         column_types = {'data': 'DATE'}
-        check_data_types('vendasexport', column_types)"""
+        check_data_types('vendasexport', column_types)
 
         # Remoção de duplicatas
         #remove_duplicates("vendasexport")
@@ -61,7 +61,7 @@ def main():
         logger.info("Dados limpos com sucesso.")
 
         # Detectar promoções
-        #detect_promotions()
+        detect_promotions()"""
 
         # Calcular indicadores da promoção
         calculate_promotion_indicators()

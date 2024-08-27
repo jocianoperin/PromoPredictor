@@ -81,7 +81,7 @@ def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
             'estoque_no_dia_promocao': 0
         }
 
-def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales, data_column):
+def calculate_category_impact(promo, df_sales, df_historical_sales, df_produtos, data_column):
     """
     Calcula o impacto da promoção nas vendas de outras categorias de produtos.
 
@@ -96,8 +96,6 @@ def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales,
         float: O impacto percentual nas outras categorias.
     """
     try:
-        logger.debug(f"Iniciando cálculo do impacto em outras categorias para a promoção: {promo['id']}")
-        logger.error(f"Colunas presentes 55: {df_historical_sales.columns.tolist()}")
         codigo_produto = promo['CodigoProduto']
         start_date = promo['DataInicioPromocao']
         end_date = promo['DataFimPromocao']
@@ -139,8 +137,8 @@ def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales,
         if outras_vendas_anteriores.empty:
             return 0.0
 
-        media_anteriores = outras_vendas_anteriores['ValorTotal'].mean()
-        total_durante_promocao = outras_vendas['ValorTotal'].sum()
+        media_anteriores = float(outras_vendas_anteriores['ValorTotal'].mean())
+        total_durante_promocao = float(outras_vendas['ValorTotal'].sum())
 
         impacto = ((total_durante_promocao - media_anteriores) / media_anteriores) * 100
 
@@ -155,7 +153,6 @@ def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales,
         logger.error(f"Erro ao calcular impacto em outras categorias para a promoção {promo['id']}: {e}")
         logger.error(traceback.format_exc())
         return 0.0
-
 
 def calcular_volume_pos_promocao(codigo_produto, data_fim_promocao):
     """
@@ -257,13 +254,13 @@ def calculate_promotion_indicators():
         promotions_query = "SELECT * FROM promotions_identified"
         vendas_query = "SELECT * FROM vendasexport"
         produtos_query = """
-            SELECT vp.*, pe.CodigoGrupo
+            SELECT *
             FROM vendasprodutosexport vp
             JOIN produtosexport pe ON vp.CodigoProduto = pe.Codigo
         """
         historical_sales_query = """
             SELECT v.Codigo AS CodigoVenda, p.CodigoProduto, v.data AS data, v.TotalPedido, 
-                p.Quantidade, p.valorunitario, p.ValorTotal, pe.CodigoGrupo
+                p.Quantidade, p.valorunitario, p.ValorTotal
             FROM vendasexport v
             INNER JOIN vendasprodutosexport p ON v.Codigo = p.CodigoVenda
             INNER JOIN produtosexport pe ON p.CodigoProduto = pe.Codigo
@@ -274,9 +271,6 @@ def calculate_promotion_indicators():
         vendas_result = db_manager.execute_query(vendas_query)
         produtos_result = db_manager.execute_query(produtos_query)
         historical_sales_result = db_manager.execute_query(historical_sales_query)
-
-        # Log para verificar as colunas do resultado
-        logger.debug(f"Colunas do resultado histórico: {historical_sales_result['columns']}")
 
         if all('data' in result and 'columns' in result for result in [promotions_result, vendas_result, produtos_result, historical_sales_result]):
             df_promotions = pd.DataFrame(promotions_result['data'], columns=promotions_result['columns'])
@@ -347,15 +341,15 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
         ]
 
         logger.info(f"[Thread-{thread_id}] Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
-        logger.error(f"Colunas presentes: {df_historical_sales.columns.tolist()}")
+
         # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
         if 'CodigoProduto' not in df_historical_sales.columns:
-            logger.error(f"Colunas presentes: {df_historical_sales.columns.tolist()}")
             logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
             return False
 
         # Verificar se a coluna 'data' existe no DataFrame df_historical_sales
         if data_column not in df_historical_sales.columns:
+            logger.error("Entrou aqui")
             logger.error(f"[Thread-{thread_id}] A coluna '{data_column}' não está presente no DataFrame 'df_historical_sales'.")
             return False
 
@@ -396,10 +390,10 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
 
         # Calcular Estoque Médio Antes da Promoção e Estoque no Dia da Promoção
         estoques = calcular_estoque_para_promocao(product_code, start_date)
-        logger.error(f"Colunas presentes 3: {df_historical_sales.columns.tolist()}")
+
         # Calcular o Impacto em Outras Categorias de Produtos
         impacto_categorias = calculate_category_impact(promo, df_sales, df_historical_sales, df_produtos, data_column)
-        logger.debug(f"Colunas do DataFrame df_historical_sales (4): {df_historical_sales.columns.tolist()}")
+
         # Calcular Volume de Vendas Pós-Promoção
         volume_pos_promocao = calcular_volume_pos_promocao(product_code, end_date)
 
