@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import traceback
@@ -97,7 +97,7 @@ def calculate_category_impact(promo, df_sales, df_produtos, df_historical_sales,
     """
     try:
         logger.debug(f"Iniciando cálculo do impacto em outras categorias para a promoção: {promo['id']}")
-
+        logger.error(f"Colunas presentes 55: {df_historical_sales.columns.tolist()}")
         codigo_produto = promo['CodigoProduto']
         start_date = promo['DataInicioPromocao']
         end_date = promo['DataFimPromocao']
@@ -171,13 +171,13 @@ def calcular_volume_pos_promocao(codigo_produto, data_fim_promocao):
     try:
         logger.debug(f"Iniciando cálculo do volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}")
 
-        # Verifique se data_fim_promocao é uma string ou um objeto datetime
-        if not isinstance(data_fim_promocao, (str, datetime.date)):
+        # Verifique se data_fim_promocao é uma string ou um objeto datetime.date
+        if not isinstance(data_fim_promocao, (str, date)):
             logger.error("data_fim_promocao precisa ser uma string ou um objeto datetime.date.")
             return 0.0
 
-        # Converta `data_fim_promocao` para string se for um objeto `datetime.date`
-        if isinstance(data_fim_promocao, datetime.date):
+        # Converta `data_fim_promocao` para string se for um objeto `date`
+        if isinstance(data_fim_promocao, date):
             data_fim_promocao = data_fim_promocao.strftime('%Y-%m-%d')
 
         # Período de análise após a promoção (7 dias)
@@ -275,12 +275,15 @@ def calculate_promotion_indicators():
         produtos_result = db_manager.execute_query(produtos_query)
         historical_sales_result = db_manager.execute_query(historical_sales_query)
 
+        # Log para verificar as colunas do resultado
+        logger.debug(f"Colunas do resultado histórico: {historical_sales_result['columns']}")
+
         if all('data' in result and 'columns' in result for result in [promotions_result, vendas_result, produtos_result, historical_sales_result]):
             df_promotions = pd.DataFrame(promotions_result['data'], columns=promotions_result['columns'])
             df_vendas = pd.DataFrame(vendas_result['data'], columns=vendas_result['columns'])
             df_produtos = pd.DataFrame(produtos_result['data'], columns=produtos_result['columns'])
             df_historical_sales = pd.DataFrame(historical_sales_result['data'], columns=historical_sales_result['columns'])
-            
+
             # Definir df_sales usando o merge entre df_vendas e df_produtos
             df_sales = pd.merge(df_vendas, df_produtos, how='inner', left_on='Codigo', right_on='CodigoVenda')
 
@@ -289,20 +292,25 @@ def calculate_promotion_indicators():
                 df_sales.rename(columns={'Data': 'data'}, inplace=True)
 
             # Processamento paralelo para cálculo de indicadores
-            with ThreadPoolExecutor() as executor:
-                futures = [executor.submit(calculate_and_insert_indicators, promo, df_sales, df_historical_sales, df_produtos, 'data') for _, promo in df_promotions.iterrows()]
+            """with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(calculate_and_insert_indicators, promo, df_sales.copy(), df_historical_sales.copy(), df_produtos.copy(), 'data') for _, promo in df_promotions.iterrows()]
                 
                 for future in as_completed(futures):
                     result = future.result()
                     if result:
                         logger.info("Cálculo de indicadores finalizado com sucesso.")
                     else:
-                        logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")
+                        logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")"""
+            
+            for _, promo in df_promotions.iterrows():
+                result = calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_produtos, 'data')
+                if result:
+                    logger.info("Cálculo de indicadores finalizado com sucesso.")
+                else:
+                    logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")
 
     except Exception as e:
         logger.error(f"Erro ao calcular indicadores de promoção: {e}")
-
-
 
 def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_produtos, data_column):
     """
@@ -339,7 +347,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
         ]
 
         logger.info(f"[Thread-{thread_id}] Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
-
+        logger.error(f"Colunas presentes: {df_historical_sales.columns.tolist()}")
         # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
         if 'CodigoProduto' not in df_historical_sales.columns:
             logger.error(f"Colunas presentes: {df_historical_sales.columns.tolist()}")
@@ -388,10 +396,10 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
 
         # Calcular Estoque Médio Antes da Promoção e Estoque no Dia da Promoção
         estoques = calcular_estoque_para_promocao(product_code, start_date)
-
+        logger.error(f"Colunas presentes 3: {df_historical_sales.columns.tolist()}")
         # Calcular o Impacto em Outras Categorias de Produtos
         impacto_categorias = calculate_category_impact(promo, df_sales, df_historical_sales, df_produtos, data_column)
-
+        logger.debug(f"Colunas do DataFrame df_historical_sales (4): {df_historical_sales.columns.tolist()}")
         # Calcular Volume de Vendas Pós-Promoção
         volume_pos_promocao = calcular_volume_pos_promocao(product_code, end_date)
 
