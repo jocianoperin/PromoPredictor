@@ -4,9 +4,54 @@ from src.services.data_formatter import standardize_formatting, check_data_types
 from src.services.outlier_detection import detect_and_remove_outliers
 from src.utils.logging_config import get_logger
 from src.services.promotion_detector import detect_promotions
-from src.services.promotion_indicators import calculate_promotion_indicators
+from src.services.promotion_indicators_processor import calculate_promotion_indicators
 
 logger = get_logger(__name__)
+
+def clean_and_prepare_database():
+    """
+    Limpa o banco de dados e prepara as tabelas necessárias.
+    """
+    drop_tables()
+    logger.info("Banco de dados limpo com sucesso.")
+
+    create_tables()
+    logger.info("Tabelas criadas com sucesso.")
+
+    insert_data()
+    logger.info("Dados inseridos nas tabelas com sucesso.")
+
+    configure_indexes()
+    logger.info("Índices configurados com sucesso.")
+
+def clean_data():
+    """
+    Remove registros inválidos e realiza a verificação de tipos de dados.
+    """
+    remove_invalid_records("vendasexport", [
+        "totalpedido IS NULL OR totalpedido <= 0",
+        "totalcusto IS NULL OR totalcusto <= 0",
+        "data IS NULL",
+        "hora IS NULL"
+    ])
+    remove_invalid_records("vendasprodutosexport", [
+        "valortabela IS NULL OR valortabela <= 0",
+        "valorunitario IS NULL OR valorunitario <= 0",
+        "valorcusto IS NULL OR valorcusto <= 0"
+    ])
+
+    check_data_types('vendasprodutosexport', {'valorunitario': 'DECIMAL(10,2)'})
+    check_data_types('vendasexport', {'data': 'DATE'})
+
+    logger.info("Dados limpos e tipos de dados verificados com sucesso.")
+
+def detect_and_process_promotions():
+    """
+    Detecta promoções e calcula os indicadores correspondentes.
+    """
+    detect_promotions()
+    calculate_promotion_indicators()
+    logger.info("Promoções detectadas e indicadores calculados com sucesso.")
 
 def main():
     """
@@ -15,53 +60,14 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        # Dropar, criar e inserir dados nas tabelas necessárias
-        drop_tables()
-        logger.info("Banco de dados limpo com sucesso.")
-
-        create_tables()
-        logger.info("Tabelas criadas com sucesso.")
-
-        insert_data()
-        logger.info("Tabelas atualizadas com sucesso.")
-
-        configure_indexes()
-        logger.info("Índices criados com sucesso.")
+        clean_and_prepare_database()
         
         logger.info("Iniciando a limpeza e processamento dos dados...")
 
-        # Remoção de registros inválidos
-        remove_invalid_records("vendasexport", [
-            "totalpedido IS NULL OR totalpedido <= 0",
-            "totalcusto IS NULL OR totalcusto <= 0",
-            "data IS NULL",
-            "hora IS NULL"
-        ])
-        remove_invalid_records("vendasprodutosexport", [
-            "valortabela IS NULL OR valortabela <= 0",
-            "valorunitario IS NULL OR valorunitario <= 0",
-            "valorcusto IS NULL OR valorcusto <= 0"
-        ])
+        clean_data()
 
-        # Remoção de duplicatas
-        """remove_duplicates("vendasexport")
-        remove_duplicates("vendasprodutosexport")"""
-        #Difícil localizar um padrão de dados duplicados
-
-        # Verificação de tipos de dados
-        column_types = {'valorunitario': 'DECIMAL(10,2)'}
-        check_data_types('vendasprodutosexport', column_types)
-        column_types = {'data': 'DATE'}
-        check_data_types('vendasexport', column_types)
-        
-        """# Detecção e remoção de outliers
-        detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
-        detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])"""
-
-        logger.info("Dados limpos com sucesso.")
-
-        # Detectar promoções
-        detect_promotions()
+        # Detecção e processamento de promoções
+        detect_and_process_promotions()
 
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
