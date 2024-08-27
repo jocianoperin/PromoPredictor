@@ -9,10 +9,14 @@ logger = get_logger(__name__)
 def detect_promotions(window_size=2, threshold=-0.05, n_workers=4):
     """
     Detecta promoções com base na redução de preço de venda em 5% ou mais, sem alteração no custo.
+
     Args:
         window_size (int): Tamanho da janela deslizante para calcular a mudança de preço.
         threshold (float): Percentual de queda no preço para considerar como promoção.
         n_workers (int): Número de threads para executar o processamento em paralelo.
+
+    Retorna:
+        None: A função não retorna valores, mas insere promoções detectadas na base de dados.
     """
     try:
         # Carregar os dados das tabelas vendasprodutosexport e vendasexport
@@ -57,9 +61,16 @@ def detect_promotions(window_size=2, threshold=-0.05, n_workers=4):
 def process_group(group, window_size, threshold):
     """
     Processa um grupo de produtos para detectar promoções.
-    Agora verifica também se o produto está marcado como em promoção e se o valor é inferior ao de tabela.
+
+    Args:
+        group (DataFrame): DataFrame contendo os dados de um grupo de produtos.
+        window_size (int): Tamanho da janela deslizante para calcular a mudança de preço.
+        threshold (float): Percentual de queda no preço para considerar como promoção.
+
+    Retorna:
+        DataFrame: Um DataFrame com as promoções detectadas para o grupo.
     """
-    thread_id = threading.get_ident()
+
     group = group.sort_values(by='Data')
     group['PriceChange'] = group['valorunitario'].pct_change(window_size)
     
@@ -76,7 +87,14 @@ def process_group(group, window_size, threshold):
 def combine_consecutive_promotions(df_promotions):
     """
     Combina promoções consecutivas para o mesmo produto.
+
+    Args:
+        df_promotions (DataFrame): DataFrame contendo as promoções detectadas.
+
+    Retorna:
+        DataFrame: Um DataFrame com promoções consecutivas combinadas em uma única promoção.
     """
+
     df_promotions_sorted = df_promotions.sort_values(by=['CodigoProduto', 'Data'])
     combined_promotions = []
 
@@ -112,9 +130,14 @@ def combine_consecutive_promotions(df_promotions):
 def insert_promotions(promotions_df):
     """
     Insere ou atualiza as promoções detectadas na tabela `promotions_identified`.
-    Se uma promoção com o mesmo `CodigoProduto`, `DataInicioPromocao`, `ValorUnitario`, e `ValorTabela`
-    já existir, apenas expande o período (`DataFimPromocao`).
+
+    Args:
+        promotions_df (DataFrame): DataFrame contendo as promoções a serem inseridas ou atualizadas.
+
+    Retorna:
+        None: A função não retorna valores, mas insere ou atualiza promoções na base de dados.
     """
+    
     try:
         for _, row in promotions_df.iterrows():
             thread_id = threading.get_ident()
