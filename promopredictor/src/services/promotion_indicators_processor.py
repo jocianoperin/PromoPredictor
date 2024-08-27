@@ -304,6 +304,32 @@ def calculate_promotion_indicators():
 def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_produtos, data_column):
     """
     Função auxiliar para calcular e inserir indicadores para uma promoção específica.
+
+    Args:
+        promo (dict): Um dicionário contendo os detalhes da promoção. Deve incluir as chaves 'CodigoProduto', 'DataInicioPromocao', 'DataFimPromocao', 'ValorCusto', 'ValorTabela', e 'ValorUnitario'.
+        df_sales (DataFrame): DataFrame contendo as vendas que ocorreram durante o período da promoção.
+        df_historical_sales (DataFrame): DataFrame contendo o histórico de vendas antes da promoção.
+        df_produtos (DataFrame): DataFrame contendo as informações dos produtos.
+        data_column (str): O nome da coluna no DataFrame `df_sales` e `df_historical_sales` que contém as datas das vendas.
+
+    Retorna:
+        bool: True se os indicadores foram calculados e inseridos com sucesso, False em caso de erro.
+
+    A função realiza os seguintes cálculos:
+        - Quantidade total vendida durante a promoção.
+        - Valor total vendido durante a promoção.
+        - Valor unitário médio vendido.
+        - Cálculo de margem de lucro.
+        - Percentual de desconto médio dado na promoção.
+        - Elasticidade preço-demanda.
+        - Estoque médio antes da promoção e no dia da promoção.
+        - Impacto da promoção em outras categorias de produtos.
+        - Volume de vendas pós-promoção.
+        - Comparação dos indicadores da promoção atual com promoções passadas do mesmo produto.
+
+    Exceções:
+        - KeyError: Caso alguma chave esperada não seja encontrada nos DataFrames fornecidos.
+        - Exception: Qualquer outra exceção é capturada e logada, retornando False.
     """
     try:
         thread_id = threading.get_ident()

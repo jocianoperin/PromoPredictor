@@ -49,11 +49,6 @@ def main():
         column_types = {'data': 'DATE'}
         check_data_types('vendasexport', column_types)
 
-        # Remoção de duplicatas
-        #remove_duplicates("vendasexport")
-        #remove_duplicates("vendasprodutosexport")
-        #Difícil localizar um padrão de dados duplicados
-
         # Detecção e remoção de outliers
         #detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
         #detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
