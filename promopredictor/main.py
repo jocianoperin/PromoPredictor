@@ -15,7 +15,7 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        """# Dropar, criar e inserir dados nas tabelas necessárias
+        # Dropar, criar e inserir dados nas tabelas necessárias
         drop_tables()
         logger.info("Banco de dados limpo com sucesso.")
 
@@ -61,7 +61,7 @@ def main():
         logger.info("Dados limpos com sucesso.")
 
         # Detectar promoções
-        detect_promotions()"""
+        detect_promotions()
 
         # Calcular indicadores da promoção
         calculate_promotion_indicators()

@@ -46,7 +46,7 @@ def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
         dict: Um dicionário contendo 'estoque_medio_antes_promocao' e 'estoque_no_dia_promocao'.
     """
     try:
-        logger.debug(f"Iniciando cálculo do estoque para o produto {codigo_produto} na data de início {data_inicio_promocao}")
+        logger.info(f"Iniciando cálculo do estoque para o produto {codigo_produto} na data de início {data_inicio_promocao}")
 
         # Calcular estoque médio antes da promoção
         query_estoque_medio = f"""
@@ -166,7 +166,7 @@ def calcular_volume_pos_promocao(codigo_produto, data_fim_promocao):
         float: O volume de vendas após a promoção.
     """
     try:
-        logger.debug(f"Iniciando cálculo do volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}")
+        logger.info(f"Iniciando cálculo do volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}")
 
         # Verifique se data_fim_promocao é uma string ou um objeto datetime.date
         if not isinstance(data_fim_promocao, (str, date)):
@@ -286,22 +286,15 @@ def calculate_promotion_indicators():
                 df_sales.rename(columns={'Data': 'data'}, inplace=True)
 
             # Processamento paralelo para cálculo de indicadores
-            """with ThreadPoolExecutor() as executor:
-                futures = [executor.submit(calculate_and_insert_indicators, promo, df_sales.copy(), df_historical_sales.copy(), df_produtos.copy(), 'data') for _, promo in df_promotions.iterrows()]
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(calculate_and_insert_indicators, promo, df_sales, df_historical_sales, df_produtos, 'data') for _, promo in df_promotions.iterrows()]
                 
                 for future in as_completed(futures):
                     result = future.result()
                     if result:
                         logger.info("Cálculo de indicadores finalizado com sucesso.")
                     else:
-                        logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")"""
-            
-            for _, promo in df_promotions.iterrows():
-                result = calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_produtos, 'data')
-                if result:
-                    logger.info("Cálculo de indicadores finalizado com sucesso.")
-                else:
-                    logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")
+                        logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")
 
     except Exception as e:
         logger.error(f"Erro ao calcular indicadores de promoção: {e}")
@@ -340,7 +333,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
             (df_sales[data_column] <= end_date)
         ]
 
-        logger.info(f"[Thread-{thread_id}] Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
+        logger.debug(f"[Thread-{thread_id}] Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
 
         # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
         if 'CodigoProduto' not in df_historical_sales.columns:
@@ -359,7 +352,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
             (df_historical_sales[data_column] < start_date)
         ]
 
-        logger.info(f"[Thread-{thread_id}] Vendas antes da promoção: {sales_before_promo.shape[0]} linhas")
+        logger.debug(f"[Thread-{thread_id}] Vendas antes da promoção: {sales_before_promo.shape[0]} linhas")
 
         # Calcular indicadores
         quantity_total = float(sales_in_promo['Quantidade'].sum())
@@ -425,7 +418,7 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
 
         # Inserir indicadores no banco de dados
         insert_indicators(indicator_row)
-        logger.info(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {product_code} na promoção de {promo['DataInicioPromocao']} a {promo['DataFimPromocao']}")
+        logger.debug(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {product_code} na promoção de {promo['DataInicioPromocao']} a {promo['DataFimPromocao']}")
 
         return True
 
