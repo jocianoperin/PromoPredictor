@@ -142,6 +142,8 @@ def insert_promotions(promotions_df):
         for _, row in promotions_df.iterrows():
             thread_id = threading.get_ident()
 
+            db_manager.begin_transaction()  # Inicia a transação
+
             # Verificar se já existe uma promoção com os mesmos detalhes
             check_query = f"""
             SELECT id, DataInicioPromocao, DataFimPromocao 
@@ -150,18 +152,18 @@ def insert_promotions(promotions_df):
             AND ValorUnitario = {row['valorunitario']}
             AND ValorTabela = {row['ValorTabela']}
             AND (
-                (DataInicioPromocao <= '{row['DataInicioPromocao']}' AND DataFimPromocao >= '{row['DataInicioPromocao']}') OR
-                (DataInicioPromocao <= '{row['DataFimPromocao']}' AND DataFimPromocao >= '{row['DataFimPromocao']}')
+                (DataInicioPromocao <= '{row['DataFimPromocao']}' AND DataFimPromocao >= '{row['DataInicioPromocao']}')
             )
             FOR UPDATE;
             """
             result = db_manager.execute_query(check_query)
-            
+
             if result['data']:
-                # Se a promoção já existe, não tente inseri-la novamente, apenas atualize as datas.
+                # Se a promoção já existe, apenas atualize as datas.
                 update_query = f"""
                 UPDATE promotions_identified
-                SET DataFimPromocao = GREATEST(DataFimPromocao, '{row['DataFimPromocao']}')
+                SET DataFimPromocao = GREATEST(DataFimPromocao, '{row['DataFimPromocao']}'),
+                    DataInicioPromocao = LEAST(DataInicioPromocao, '{row['DataInicioPromocao']}')
                 WHERE id = {result['data'][0][0]}
                 """
                 db_manager.execute_query(update_query)
@@ -170,9 +172,14 @@ def insert_promotions(promotions_df):
                 insert_query = f"""
                 INSERT INTO promotions_identified (CodigoProduto, DataInicioPromocao, DataFimPromocao, valorunitario, ValorCusto, ValorTabela) 
                 VALUES ({row['CodigoProduto']}, '{row['DataInicioPromocao']}', '{row['DataFimPromocao']}', {row['valorunitario']}, {row['ValorCusto']}, {row['ValorTabela']})
+                ON DUPLICATE KEY UPDATE 
+                    DataFimPromocao = GREATEST(DataFimPromocao, '{row['DataFimPromocao']}'),
+                    DataInicioPromocao = LEAST(DataInicioPromocao, '{row['DataInicioPromocao']}')
                 """
                 db_manager.execute_query(insert_query)
 
-        logger.info(f"[Thread-{thread_id}] Promoções inseridas/atualizadas na tabela promotions_identified com sucesso.")
+            db_manager.commit_transaction()  # Comita a transação
+            logger.debug(f"[Thread-{thread_id}] Promoções inseridas/atualizadas na tabela promotions_identified com sucesso.")
     except Exception as e:
+        db_manager.rollback_transaction()  # Faz rollback da transação em caso de erro
         logger.error(f"[Thread-{thread_id}] Erro ao inserir/atualizar promoções na tabela: {e}")

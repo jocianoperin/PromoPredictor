@@ -46,7 +46,7 @@ def calcular_estoque_para_promocao(codigo_produto, data_inicio_promocao):
         dict: Um dicionário contendo 'estoque_medio_antes_promocao' e 'estoque_no_dia_promocao'.
     """
     try:
-        logger.info(f"Iniciando cálculo do estoque para o produto {codigo_produto} na data de início {data_inicio_promocao}")
+        logger.debug(f"Iniciando cálculo do estoque para o produto {codigo_produto} na data de início {data_inicio_promocao}")
 
         # Calcular estoque médio antes da promoção
         query_estoque_medio = f"""
@@ -334,25 +334,10 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
     try:
         thread_id = threading.get_ident()
 
-        # Verificar se a coluna CodigoProduto existe no DataFrame promo
-        if 'CodigoProduto' not in promo:
-            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'promo'.")
-            return False
-
         start_date = promo['DataInicioPromocao']
         end_date = promo['DataFimPromocao']
         product_code = promo['CodigoProduto']
         promotion_id = promo['id']
-
-        # Verificar se a coluna CodigoProduto existe no DataFrame df_sales
-        if 'CodigoProduto' not in df_sales.columns:
-            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_sales'.")
-            return False
-
-        # Verificar se a coluna 'data' existe no DataFrame df_sales
-        if data_column not in df_sales.columns:
-            logger.error(f"[Thread-{thread_id}] A coluna '{data_column}' não está presente no DataFrame 'df_sales'.")
-            return False
 
         # Filtrar vendas dentro do período da promoção para o produto específico
         sales_in_promo = df_sales[
@@ -362,17 +347,6 @@ def calculate_and_insert_indicators(promo, df_sales, df_historical_sales, df_pro
         ]
 
         logger.debug(f"[Thread-{thread_id}] Vendas durante a promoção: {sales_in_promo.shape[0]} linhas")
-
-        # Verificar se a coluna CodigoProduto existe no DataFrame df_historical_sales
-        if 'CodigoProduto' not in df_historical_sales.columns:
-            logger.error(f"[Thread-{thread_id}] A coluna 'CodigoProduto' não está presente no DataFrame 'df_historical_sales'.")
-            return False
-
-        # Verificar se a coluna 'data' existe no DataFrame df_historical_sales
-        if data_column not in df_historical_sales.columns:
-            logger.error("Entrou aqui")
-            logger.error(f"[Thread-{thread_id}] A coluna '{data_column}' não está presente no DataFrame 'df_historical_sales'.")
-            return False
 
         # Filtrar vendas antes da promoção
         sales_before_promo = df_historical_sales[

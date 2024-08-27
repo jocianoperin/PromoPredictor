@@ -268,7 +268,10 @@ def configure_indexes():
         {"name": "idx_vendasprodutosexport_precoempromocao", "table": "vendasprodutosexport", "columns": "PrecoemPromocao"},
         {"name": "idx_codigo_produtosexport", "table": "produtosexport", "columns": "Codigo"},
         {"name": "idx_codigoproduto_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "CodigoProduto"},
-        {"name": "idx_data_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "DataHora"}
+        {"name": "idx_data_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "DataHora"},
+        {"name": "idx_vendasprodutosexport_codigoproduto_codigovenda", "table": "vendasprodutosexport", "columns": "CodigoProduto, CodigoVenda"},
+        {"name": "idx_auditoriaestoquexport_codigoproduto_datahora", "table": "auditoriaestoquexport", "columns": "CodigoProduto, DataHora"},
+        {"name": "idx_sales_indicators_codigoproduto_datafimpromocao", "table": "sales_indicators", "columns": "CodigoProduto, DataFimPromocao"}
     ]
 
     for index in indexes:

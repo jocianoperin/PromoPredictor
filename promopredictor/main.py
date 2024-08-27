@@ -60,11 +60,11 @@ def main():
     try:
         logger.info("Iniciando o processo de inicialização do projeto...")
 
-        clean_and_prepare_database()
+        #clean_and_prepare_database()
         
         logger.info("Iniciando a limpeza e processamento dos dados...")
 
-        clean_data()
+        #clean_data()
 
         # Detecção e processamento de promoções
         detect_and_process_promotions()
