@@ -28,7 +28,7 @@ def insert_indicators(row):
         """
         db_manager.execute_query(insert_query)
         thread_id = threading.get_ident()
-        logger.info(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {row['CodigoProduto']} na promoção de {row['DataInicioPromocao']} a {row['DataFimPromocao']}")
+        logger.debug(f"[Thread-{thread_id}] Indicador inserido com sucesso para produto {row['CodigoProduto']} na promoção de {row['DataInicioPromocao']} a {row['DataFimPromocao']}")
     except Exception as e:
         thread_id = threading.get_ident()
         logger.error(f"[Thread-{thread_id}] Erro ao inserir indicador: {e}")
@@ -166,7 +166,7 @@ def calcular_volume_pos_promocao(codigo_produto, data_fim_promocao):
         float: O volume de vendas após a promoção.
     """
     try:
-        logger.info(f"Iniciando cálculo do volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}")
+        logger.debug(f"Iniciando cálculo do volume de vendas pós-promoção para o produto {codigo_produto}, fim da promoção: {data_fim_promocao}")
 
         # Verifique se data_fim_promocao é uma string ou um objeto datetime.date
         if not isinstance(data_fim_promocao, (str, date)):
@@ -292,10 +292,12 @@ def calculate_promotion_indicators():
                 for future in as_completed(futures):
                     result = future.result()
                     if result:
-                        logger.info("Cálculo de indicadores finalizado com sucesso.")
+                        logger.debug("Cálculo de indicadores finalizado com sucesso.")
                     else:
                         logger.warning("Ocorreu um problema durante o cálculo dos indicadores.")
 
+        logger.info("Cálculo de indicadores finalizado com sucesso.")
+    
     except Exception as e:
         logger.error(f"Erro ao calcular indicadores de promoção: {e}")
 
