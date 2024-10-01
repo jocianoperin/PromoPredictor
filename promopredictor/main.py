@@ -2,6 +2,7 @@ from src.services.tables_manager import create_tables, drop_tables, insert_data,
 from src.services.data_cleaner import clean_null_values, remove_invalid_records, remove_duplicates
 from src.services.data_formatter import standardize_formatting, check_data_types
 from src.services.outlier_detection import detect_and_remove_outliers
+from src.services.indicadores_resumo_batch import process_data_and_insert
 from src.utils.logging_config import get_logger
 from src.services.promotion_detector import detect_promotions
 from src.services.promotion_indicators_processor import calculate_promotion_indicators
@@ -60,11 +61,17 @@ def main():
 
         logger.info("Dados limpos com sucesso.")
 
+        # Iniciando o processamento e inserção em blocos
+        logger.info("Iniciando processamento de dados em blocos para indicadores de vendas...")
+        
+        # Chamando a função para processar e inserir os dados na tabela indicadores_vendas_produtos_resumo
+        process_data_and_insert()
+
         # Detectar promoções
-        detect_promotions()
+        #detect_promotions()
 
         # Calcular indicadores da promoção
-        calculate_promotion_indicators()
+        #calculate_promotion_indicators()
 
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
