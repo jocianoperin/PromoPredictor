@@ -139,6 +139,59 @@ def create_tables():
                     EstoqueAtual DOUBLE
                 );
             """
+        },
+        {
+            "name": "calendario",
+            "query": """
+                CREATE TABLE IF NOT EXISTS calendario (
+                    data DATE PRIMARY KEY
+                );
+            """
+        },
+        {
+            "name": "vendas_auxiliar",
+            "query": """
+                CREATE TABLE IF NOT EXISTS vendas_auxiliar AS
+                SELECT Codigo, DATA FROM vendas;
+            """
+        },
+        {
+            "name": "vendasprodutos_auxiliar",
+            "query": """
+                CREATE TABLE IF NOT EXISTS vendasprodutos_auxiliar AS
+                SELECT vp.Sequencia, vp.CodigoVenda, vp.CodigoProduto, vp.CodigoSecao, 
+                       vp.CodigoGrupo, vp.CodigoSubGrupo, 1 AS CodigoSupermercado, 
+                       vp.Quantidade, vp.ValorTotal, IFNULL(vp.precoempromocao, 0) AS Promocao
+                FROM vendasprodutos vp;
+            """
+        },
+        {
+            "name": "indicadores_vendas_produtos",
+            "query": """
+                CREATE TABLE IF NOT EXISTS indicadores_vendas_produtos AS
+                SELECT v.DATA, v.Codigo AS CodigoVenda, vp.CodigoProduto, vp.CodigoSecao, 
+                       vp.CodigoGrupo, vp.CodigoSubGrupo, 1 AS CodigoSupermercado, 
+                       vp.Quantidade, vp.ValorTotal, vp.Promocao
+                FROM vendas_auxiliar v
+                INNER JOIN vendasprodutos_auxiliar vp ON v.Codigo = vp.CodigoVenda;
+            """
+        },
+        {
+            "name": "indicadores_vendas_produtos_resumo",
+            "query": """
+                CREATE TABLE IF NOT EXISTS indicadores_vendas_produtos_resumo (
+                    DATA DATE NOT NULL,
+                    CodigoProduto INT(10) UNSIGNED NOT NULL,
+                    CodigoSecao INT(10) UNSIGNED NULL,
+                    CodigoGrupo INT(10) UNSIGNED NULL,
+                    CodigoSubGrupo INT(10) UNSIGNED NULL,
+                    CodigoSupermercado INT(1) NULL,
+                    TotalUNVendidas DOUBLE DEFAULT 0,
+                    ValorTotalVendido DOUBLE DEFAULT 0,
+                    Promocao DECIMAL(3,0) DEFAULT 0,
+                    PRIMARY KEY (DATA, CodigoProduto)
+                );
+            """
         }
     ]
 
@@ -160,7 +213,12 @@ def drop_tables():
         "vendasexport",
         "vendasprodutosexport",
         "produtosexport",
-        "auditoriaestoquexport"
+        "auditoriaestoquexport",
+        "calendario",
+        "vendas_auxiliar",
+        "vendasprodutos_auxiliar",
+        "indicadores_vendas_produtos",
+        "indicadores_vendas_produtos_resumo"
     ]
 
     for table in tables_to_drop:
@@ -239,6 +297,56 @@ def insert_data():
                     DataHora, CodigoProduto, EstoqueAtual
                 FROM auditoriaestoque;
             """
+        },
+        {
+        "table": "calendario",
+            "query": """
+                INSERT INTO calendario (data)
+                SELECT DATE_ADD('2019-01-01', INTERVAL t4.num * 10000 + t3.num * 1000 + t2.num * 100 + t1.num * 10 + t0.num DAY)
+                FROM 
+                  (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t0,
+                  (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t1,
+                  (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t2,
+                  (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t3,
+                  (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t4
+                WHERE DATE_ADD('2019-01-01', INTERVAL t4.num * 10000 + t3.num * 1000 + t2.num * 100 + t1.num * 10 + t0.num DAY) < '2024-01-01';
+            """
+        },
+        {
+            "table": "vendas_auxiliar",
+            "query": """
+                INSERT INTO vendas_auxiliar (Codigo, DATA)
+                SELECT Codigo, DATA FROM vendas;
+            """
+        },
+        {
+            "table": "vendasprodutos_auxiliar",
+            "query": """
+                INSERT INTO vendasprodutos_auxiliar (
+                    Sequencia, CodigoVenda, CodigoProduto, CodigoSecao, CodigoGrupo, 
+                    CodigoSubGrupo, CodigoSupermercado, Quantidade, ValorTotal, Promocao
+                )
+                SELECT 
+                    vp.Sequencia, vp.CodigoVenda, vp.CodigoProduto, vp.CodigoSecao, 
+                    vp.CodigoGrupo, vp.CodigoSubGrupo, 1 AS CodigoSupermercado, 
+                    vp.Quantidade, vp.ValorTotal, IFNULL(vp.precoempromocao, 0) AS Promocao
+                FROM vendasprodutos vp;
+            """
+        },
+        {
+            "table": "indicadores_vendas_produtos",
+            "query": """
+                INSERT INTO indicadores_vendas_produtos (
+                    DATA, CodigoVenda, CodigoProduto, CodigoSecao, CodigoGrupo, 
+                    CodigoSubGrupo, CodigoSupermercado, Quantidade, ValorTotal, Promocao
+                )
+                SELECT 
+                    v.DATA, v.Codigo AS CodigoVenda, vp.CodigoProduto, vp.CodigoSecao, 
+                    vp.CodigoGrupo, vp.CodigoSubGrupo, 1 AS CodigoSupermercado, 
+                    vp.Quantidade, vp.ValorTotal, vp.Promocao
+                FROM vendas_auxiliar v
+                INNER JOIN vendasprodutos_auxiliar vp ON v.Codigo = vp.CodigoVenda;
+            """
         }
     ]
 
@@ -269,9 +377,11 @@ def configure_indexes():
         {"name": "idx_codigo_produtosexport", "table": "produtosexport", "columns": "Codigo"},
         {"name": "idx_codigoproduto_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "CodigoProduto"},
         {"name": "idx_data_auditoriaestoquexport", "table": "auditoriaestoquexport", "columns": "DataHora"},
-        {"name": "idx_vendasprodutosexport_codigoproduto_codigovenda", "table": "vendasprodutosexport", "columns": "CodigoProduto, CodigoVenda"},
-        {"name": "idx_auditoriaestoquexport_codigoproduto_datahora", "table": "auditoriaestoquexport", "columns": "CodigoProduto, DataHora"},
-        {"name": "idx_sales_indicators_codigoproduto_datafimpromocao", "table": "sales_indicators", "columns": "CodigoProduto, DataFimPromocao"}
+        {"name": "idx_indicadores_vendas_produtos", "table": "indicadores_vendas_produtos", "columns": "CodigoProduto"},
+        {"name": "idx_indicadores_vendas_produtos", "table": "indicadores_vendas_produtos", "columns": "CodigoVenda"},
+        {"name": "idx_indicadores_vendas_produtos", "table": "indicadores_vendas_produtos", "columns": "DATA"},
+        {"name": "idx_indicadores_vendas_produtos", "table": "indicadores_vendas_produtos", "columns": "CodigoProduto, DATA"},
+        {"name": "idx_indicadores_resumo_produtos", "table": "indicadores_vendas_produtos_resumo", "columns": "CodigoProduto, DATA"}
     ]
 
     for index in indexes:
