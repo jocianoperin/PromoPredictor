@@ -28,6 +28,7 @@ def clean_and_prepare_database():
     except Exception as e:
         logger.error(f"Erro ao limpar e preparar o banco de dados: {e}")
 
+
 def clean_data():
     """
     Remove registros inválidos e realiza a verificação de tipos de dados.
