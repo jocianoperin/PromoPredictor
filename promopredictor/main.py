@@ -2,6 +2,7 @@ from src.services.tables_manager import create_tables, drop_tables, insert_data,
 from src.services.data_cleaner import clean_null_values, remove_invalid_records, remove_duplicates
 from src.services.data_formatter import standardize_formatting, check_data_types
 from src.services.outlier_detection import detect_and_remove_outliers
+from src.services.indicadores_resumo_batch import process_data_and_insert
 from src.utils.logging_config import get_logger
 from src.services.promotion_detector import detect_promotions
 from src.services.promotion_indicators_processor import calculate_promotion_indicators
@@ -40,34 +41,28 @@ def clean_data():
         "valorcusto IS NULL OR valorcusto <= 0"
     ])
 
-    check_data_types('vendasprodutosexport', {'valorunitario': 'DECIMAL(10,2)'})
-    check_data_types('vendasexport', {'data': 'DATE'})
+        # Verificação de tipos de dados
+        column_types = {'valorunitario': 'DECIMAL(10,2)'}
+        check_data_types('vendasprodutosexport', column_types)
+        column_types = {'data': 'DATE'}
+        check_data_types('vendasexport', column_types)
 
-    logger.info("Dados limpos e tipos de dados verificados com sucesso.")
+        # Remoção de duplicatas
+        #remove_duplicates("vendasexport")
+        #remove_duplicates("vendasprodutosexport")
+        #Difícil localizar um padrão de dados duplicados
 
-def detect_and_process_promotions():
-    """
-    Detecta promoções e calcula os indicadores correspondentes.
-    """
-    detect_promotions()
-    calculate_promotion_indicators()
-    logger.info("Promoções detectadas e indicadores calculados com sucesso.")
+        # Detecção e remoção de outliers
+        #detect_and_remove_outliers('vendasexport', ['totalpedido', 'totalcusto'])
+        #detect_and_remove_outliers('vendasprodutosexport', ['valortabela', 'valorunitario', 'valorcusto'])
 
-def main():
-    """
-    Função principal que organiza a sequência de operações para inicialização do projeto.
-    """
-    try:
-        logger.info("Iniciando o processo de inicialização do projeto...")
+        logger.info("Dados limpos com sucesso.")
 
-        clean_and_prepare_database()
-        
-        logger.info("Iniciando a limpeza e processamento dos dados...")
+        # Detectar promoções
+        detect_promotions()
 
-        clean_data()
-
-        # Detecção e processamento de promoções
-        detect_and_process_promotions()
+        # Calcular indicadores da promoção
+        calculate_promotion_indicators()
 
         logger.info("Processo de inicialização do projeto concluído com sucesso.")
     except Exception as e:
