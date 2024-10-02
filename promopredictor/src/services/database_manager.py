@@ -90,3 +90,31 @@ class DatabaseManager:
                 finally:
                     cursor.close()
                     connection.close()
+
+    def begin_transaction(self):
+        if self.use_sqlalchemy:
+            self.session = self.Session()
+            self.transaction = self.session.begin_nested()
+        else:
+            self.connection = connect(**self.connection_params)
+            self.cursor = self.connection.cursor()
+            self.connection.start_transaction()
+
+    def commit_transaction(self):
+        if self.use_sqlalchemy:
+            self.session.commit()
+        else:
+            self.connection.commit()
+
+    def rollback_transaction(self):
+        if self.use_sqlalchemy:
+            self.session.rollback()
+        else:
+            self.connection.rollback()
+
+    def close(self):
+        if self.use_sqlalchemy:
+            self.session.close()
+        else:
+            self.cursor.close()
+            self.connection.close()
