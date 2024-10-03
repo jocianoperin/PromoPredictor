@@ -7,14 +7,22 @@ logger = get_logger(__name__)
 # Função para buscar registros em blocos
 def fetch_data_in_batches(query, batch_size=100000):
     """
-    Busca dados em blocos (chunks) do banco de dados para evitar sobrecarga de memória.
+    Busca dados em blocos (chunks) do banco de dados usando o método execute_query diretamente.
     """
     try:
-        connection = db_manager.get_connection()  # Obter a conexão ativa do gerenciador de banco
-        return pd.read_sql(query, connection, chunksize=batch_size)
+        # Use a função db_manager.execute_query para obter dados
+        result = db_manager.execute_query(query)
+        if 'data' in result and 'columns' in result:
+            logger.info(f"Quantidade de registros retornados: {len(result['data'])}")
+            df = pd.DataFrame(result['data'], columns=result['columns'])
+            return [df]  # Retorna uma lista de DataFrames como batches
+        else:
+            logger.warning("Nenhum dado foi retornado pela query.")
+            return None
     except Exception as e:
-        logger.error(f"Erro ao buscar dados em blocos: {e}")
+        logger.error(f"Erro ao buscar dados: {e}")
         return None
+
 
 # Inserir os dados processados no banco de dados
 def insert_data_in_batches(df, table_name):
@@ -30,6 +38,7 @@ def insert_data_in_batches(df, table_name):
                     {row['CodigoSubGrupo']}, {row['CodigoSupermercado']}, {row['TotalUNVendidas']}, 
                     {row['ValorTotalVendido']}, {row['Promocao']})
             """
+            # Executar a query para cada linha sem encerrar a conexão
             db_manager.execute_query(insert_query)
         logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
     except Exception as e:

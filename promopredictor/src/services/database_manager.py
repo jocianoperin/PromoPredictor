@@ -43,6 +43,18 @@ class DatabaseManager:
             }
             self.placeholder = "%s"   # Placeholder para estilo MySQL Connector
 
+    def get_connection(self):
+        """
+        Retorna uma conexão ativa ao banco de dados.
+        Para SQLAlchemy, retorna uma conexão da engine; para MySQL Connector, retorna uma conexão MySQL.
+        """
+        if self.use_sqlalchemy:
+            # Se estiver usando SQLAlchemy, retorne a engine conectada
+            return self.engine.connect()
+        else:
+            # Se não estiver usando SQLAlchemy, retorne uma conexão MySQL
+            return connect(**self.connection_params)
+            
     def execute_query(self, query, params=None):
         """
         Executa uma consulta SQL, gerenciando a conexão e a execução de forma segura,

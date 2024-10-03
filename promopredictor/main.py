@@ -2,6 +2,7 @@ from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 from src.services.tables_manager import create_tables, drop_tables, insert_data, configure_indexes
 from src.services.data_cleaner import remove_invalid_records, clean_null_values, remove_duplicates
+from src.services.indicadores_resumo_batch import process_data_and_insert
 from src.services.data_formatter import check_data_types, standardize_formatting
 
 logger = get_logger(__name__)
@@ -12,7 +13,7 @@ def main():
     validação e limpeza de registros, com logs detalhados.
     """
 
-    # 1. Dropar tabelas antigas
+    """# 1. Dropar tabelas antigas
     logger.info("==== Início do processo ====")
     logger.info("1. Excluindo tabelas antigas...")
     drop_tables()
@@ -121,16 +122,23 @@ def main():
     logger.info("8. Removendo registros duplicados...")
 
     logger.info("Removendo duplicatas da tabela 'vendasprodutos_auxiliar'...")
-    remove_duplicates('vendasprodutos_auxiliar')
+    #remove_duplicates('vendasprodutos_auxiliar')
     logger.info("Duplicatas removidas da tabela 'vendasprodutos_auxiliar'.")
 
     logger.info("Removendo duplicatas da tabela 'indicadores_vendas_produtos'...")
-    remove_duplicates('indicadores_vendas_produtos')
+    #remove_duplicates('indicadores_vendas_produtos')
     logger.info("Duplicatas removidas da tabela 'indicadores_vendas_produtos'.")
 
     logger.info("Removendo duplicatas da tabela 'produtosmaisvendidos'...")
-    remove_duplicates('produtosmaisvendidos')
+    #remove_duplicates('produtosmaisvendidos')
     logger.info("Duplicatas removidas da tabela 'produtosmaisvendidos'.")
+
+    logger.info("==== Processo finalizado com sucesso! ====")"""
+
+    # 9. Processamento dos dados para indicadores de resumo
+    logger.info("9. Processando dados de indicadores de vendas para resumo...")
+    process_data_and_insert()
+    logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")
 
     logger.info("==== Processo finalizado com sucesso! ====")
 
