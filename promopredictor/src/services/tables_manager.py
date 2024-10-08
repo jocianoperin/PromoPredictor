@@ -183,7 +183,7 @@ def insert_data():
                     vp.CodigoGrupo, vp.CodigoSubGrupo, 1 AS CodigoSupermercado, 
                     vp.Quantidade, vp.ValorTotal, vp.Promocao
                 FROM vendas_auxiliar v
-                INNER JOIN vendasprodutos_auxiliar vp ON v.Codigo = vp.CodigoVenda;
+                INNER JOIN vendasprodutos_auxiliar vp ON v.Codigo = vp.CodigoVenda WHERE v.`DATA` IS NOT NULL;
             """
         }
     ]
@@ -204,7 +204,11 @@ def configure_indexes():
         {"name": "idx_vendas_auxiliar", "table": "vendas_auxiliar", "columns": "Codigo"},
         {"name": "idx_vendasprodutos_auxiliar", "table": "vendasprodutos_auxiliar", "columns": "CodigoProduto"},
         {"name": "idx_produtosmaisvendidos", "table": "produtosmaisvendidos", "columns": "CodigoProduto"},
-        {"name": "idx_indicadores_vendas_produtos", "table": "indicadores_vendas_produtos", "columns": "CodigoProduto, DATA"},
+        {"name": "idx_indicadores_vendas_produtos_codigo", "table": "indicadores_vendas_produtos", "columns": "CodigoProduto"},
+        {"name": "idx_indicadores_vendas_produtos_data", "table": "indicadores_vendas_produtos", "columns": "DATA"},
+        {"name": "idx_indicadores_vendas_produtos_DATA_CodigoProduto", "table": "indicadores_vendas_produtos", "columns": "DATA, CodigoProduto"},
+        {"name": "idx_indicadores_vendas_produtos_resumo_codigo", "table": "indicadores_vendas_produtos_resumo", "columns": "CodigoProduto"},
+        {"name": "idx_indicadores_vendas_produtos_resumo_data", "table": "indicadores_vendas_produtos_resumo", "columns": "DATA"},
         {"name": "idx_indicadores_vendas_produtos_resumo", "table": "indicadores_vendas_produtos_resumo", "columns": "CodigoProduto, DATA"}
     ]
 

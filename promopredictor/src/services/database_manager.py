@@ -1,12 +1,17 @@
 # Este módulo define a classe DatabaseManager que encapsula as operações de banco de dados,
 # permitindo alternar entre diferentes conectores de banco de dados com facilidade.
 
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from mysql.connector import connect, Error as MySQLError
 from src.utils.logging_config import get_logger
 import threading
+
+# Carregar as variáveis do arquivo .env
+load_dotenv()
 
 lock = threading.Lock()
 
@@ -19,7 +24,7 @@ class DatabaseManager:
     adaptação e manutenção do acesso ao banco de dados em diferentes ambientes ou
     preferências de tecnologia.
     """
-    def __init__(self, use_sqlalchemy=False):
+    def __init__(self, use_sqlalchemy=None):
         """
         Inicializa o DatabaseManager. Pode configurar para usar SQLAlchemy, que é mais
         abstrato e suporta várias bases de dados SQL, ou MySQL Connector, que é específico
@@ -27,19 +32,31 @@ class DatabaseManager:
         
         Args:
             use_sqlalchemy (bool): Se True, usa SQLAlchemy. Se False, usa MySQL Connector.
+                                   Se None, usa o valor da variável de ambiente USE_SQLALCHEMY.
         """
-        self.use_sqlalchemy = use_sqlalchemy
+        # Se use_sqlalchemy for None, usa a variável de ambiente
+        if use_sqlalchemy is None:
+            self.use_sqlalchemy = os.getenv("USE_SQLALCHEMY", "False").lower() == "true"
+        else:
+            self.use_sqlalchemy = use_sqlalchemy
+
         if self.use_sqlalchemy:
-            self.connection_string = "mysql+mysqlconnector://root:1@localhost/atena"
+            # Construir a string de conexão com base nas variáveis de ambiente
+            self.connection_string = (
+                f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+                f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+            )
             self.engine = create_engine(self.connection_string, echo=False)
             self.Session = sessionmaker(bind=self.engine)
             self.placeholder = ":{}"  # Placeholder para estilo SQLAlchemy
         else:
+            # Configurar parâmetros de conexão para o MySQL Connector
             self.connection_params = {
-                'host': 'localhost',
-                'user': 'root',
-                'password': '1',
-                'database': 'atena'
+                'host': os.getenv('DB_HOST'),
+                'user': os.getenv('DB_USER'),
+                'password': os.getenv('DB_PASSWORD'),
+                'database': os.getenv('DB_NAME'),
+                'port': os.getenv('DB_PORT', 3306)
             }
             self.placeholder = "%s"   # Placeholder para estilo MySQL Connector
 
@@ -49,10 +66,8 @@ class DatabaseManager:
         Para SQLAlchemy, retorna uma conexão da engine; para MySQL Connector, retorna uma conexão MySQL.
         """
         if self.use_sqlalchemy:
-            # Se estiver usando SQLAlchemy, retorne a engine conectada
             return self.engine.connect()
         else:
-            # Se não estiver usando SQLAlchemy, retorne uma conexão MySQL
             return connect(**self.connection_params)
             
     def execute_query(self, query, params=None):

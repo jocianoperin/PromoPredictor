@@ -13,25 +13,25 @@ def main():
     validação e limpeza de registros, com logs detalhados.
     """
 
-    """# 1. Dropar tabelas antigas
+    # 1. Dropar tabelas antigas
     logger.info("==== Início do processo ====")
     logger.info("1. Excluindo tabelas antigas...")
-    drop_tables()
+    #drop_tables()
     logger.info("Tabelas antigas excluídas com sucesso.")
 
     # 2. Criar as tabelas
     logger.info("2. Criando novas tabelas...")
-    create_tables()
+    #create_tables()
     logger.info("Novas tabelas criadas com sucesso.")
 
     # 3. Inserir os dados
     logger.info("3. Inserindo dados nas tabelas...")
-    insert_data()
+    #insert_data()
     logger.info("Dados inseridos com sucesso.")
 
     # 4. Configurar os índices nas tabelas
     logger.info("4. Configurando índices nas tabelas...")
-    configure_indexes()
+    #configure_indexes()
     logger.info("Índices configurados com sucesso.")
 
     # 5. Validações e Limpeza de Dados
@@ -133,7 +133,7 @@ def main():
     #remove_duplicates('produtosmaisvendidos')
     logger.info("Duplicatas removidas da tabela 'produtosmaisvendidos'.")
 
-    logger.info("==== Processo finalizado com sucesso! ====")"""
+    logger.info("==== Processo finalizado com sucesso! ====")
 
     # 9. Processamento dos dados para indicadores de resumo
     logger.info("9. Processando dados de indicadores de vendas para resumo...")
