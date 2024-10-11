@@ -13,7 +13,7 @@ def main():
     validação e limpeza de registros, com logs detalhados.
     """
 
-    # 1. Dropar tabelas antigas
+    """# 1. Dropar tabelas antigas
     logger.info("==== Início do processo ====")
     logger.info("1. Excluindo tabelas antigas...")
     #drop_tables()
@@ -78,7 +78,7 @@ def main():
         'ValorTotal': 'DOUBLE',
         'Promocao': 'DECIMAL(3,0)'
     }
-    check_data_types('vendasprodutos_auxiliar', column_types_vendasprodutos_auxiliar)
+    #check_data_types('vendasprodutos_auxiliar', column_types_vendasprodutos_auxiliar)
     logger.info("Tipos de dados da tabela 'vendasprodutos_auxiliar' verificados e ajustados.")
 
     # Verificação de tipos de dados para vendas_auxiliar
@@ -86,7 +86,7 @@ def main():
     column_types_vendas_auxiliar = {
         'DATA': 'DATE'
     }
-    check_data_types('vendas_auxiliar', column_types_vendas_auxiliar)
+    #check_data_types('vendas_auxiliar', column_types_vendas_auxiliar)
     logger.info("Tipos de dados da tabela 'vendas_auxiliar' verificados e ajustados.")
 
     # Verificação de tipos de dados para produtosmaisvendidos
@@ -133,7 +133,7 @@ def main():
     #remove_duplicates('produtosmaisvendidos')
     logger.info("Duplicatas removidas da tabela 'produtosmaisvendidos'.")
 
-    logger.info("==== Processo finalizado com sucesso! ====")
+    logger.info("==== Processo finalizado com sucesso! ====")"""
 
     # 9. Processamento dos dados para indicadores de resumo
     logger.info("9. Processando dados de indicadores de vendas para resumo...")

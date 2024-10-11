@@ -1,6 +1,7 @@
 import pandas as pd
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
+import numpy as np
 
 logger = get_logger(__name__)
 
@@ -31,6 +32,9 @@ def insert_data_in_batches(df, table_name):
     """
     try:
         for index, row in df.iterrows():
+            # Substituir valores NaN por NULL
+            row = row.replace({np.nan: 'NULL'})
+            
             insert_query = f"""
             INSERT INTO {table_name} (DATA, CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, 
                                        CodigoSupermercado, TotalUNVendidas, ValorTotalVendido, Promocao)
@@ -38,6 +42,9 @@ def insert_data_in_batches(df, table_name):
                     {row['CodigoSubGrupo']}, {row['CodigoSupermercado']}, {row['TotalUNVendidas']}, 
                     {row['ValorTotalVendido']}, {row['Promocao']})
             """
+            # Ajustar o formato de valores NULL corretamente no SQL
+            insert_query = insert_query.replace("'NULL'", "NULL")
+            
             # Executar a query para cada linha sem encerrar a conexão
             db_manager.execute_query(insert_query)
         logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
@@ -51,20 +58,20 @@ def process_data_and_insert():
     """
     # SQL para buscar e agrupar os dados
     query = """
-    SELECT c.DATA, p.CodigoProduto, COALESCE(va2.CodigoSecao, p.CodigoSecao) AS CodigoSecao, 
-           COALESCE(va2.CodigoGrupo, p.CodigoGrupo) AS CodigoGrupo,
-           COALESCE(va2.CodigoSubGrupo, p.CodigoSubGrupo) AS CodigoSubGrupo, 
-           COALESCE(va2.CodigoSupermercado, p.CodigoSupermercado) AS CodigoSupermercado,
-           ROUND(IFNULL(SUM(va2.Quantidade), 0), 2) AS TotalUNVendidas, 
-           ROUND(IFNULL(SUM(va2.ValorTotal), 0), 2) AS ValorTotalVendido, 
-           IFNULL(va2.Promocao, 0) AS Promocao
-    FROM calendario c 
-    CROSS JOIN (SELECT DISTINCT CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoSupermercado 
-                FROM indicadores_vendas_produtos) p 
-    LEFT JOIN indicadores_vendas_produtos va2 
-    ON c.DATA = va2.DATA AND p.CodigoProduto = va2.CodigoProduto
-    GROUP BY c.DATA, p.CodigoProduto
-    ORDER BY p.CodigoProduto, c.DATA;
+        SELECT c.DATA, p.CodigoProduto, 
+                COALESCE(va2.CodigoSecao, p.CodigoSecao) AS CodigoSecao, 
+                COALESCE(va2.CodigoGrupo, p.CodigoGrupo) AS CodigoGrupo,
+                COALESCE(va2.CodigoSubGrupo, p.CodigoSubGrupo) AS CodigoSubGrupo, 
+                COALESCE(va2.CodigoSupermercado, p.CodigoSupermercado) AS CodigoSupermercado,
+                ROUND(IFNULL(SUM(va2.Quantidade), 0), 2) AS TotalUNVendidas, 
+                ROUND(IFNULL(SUM(va2.ValorTotal), 0), 2) AS ValorTotalVendido, 
+                IFNULL(va2.Promocao, 0) AS Promocao
+        FROM calendario c 
+        JOIN indicadores_vendas_produtos p ON p.DATA = c.DATA
+        LEFT JOIN indicadores_vendas_produtos va2 
+        ON c.DATA = va2.DATA AND p.CodigoProduto = va2.CodigoProduto
+        GROUP BY c.DATA, p.CodigoProduto
+        ORDER BY p.CodigoProduto, c.DATA;
     """
     
     logger.info("Iniciando processamento em blocos para a tabela indicadores_vendas_produtos_resumo...")
