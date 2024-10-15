@@ -87,6 +87,19 @@ def create_tables():
                     PRIMARY KEY (DATA, CodigoProduto)
                 );
             """
+        },
+        {
+            "name": "indicadores_vendas_produtos_previsoes",
+            "query": """
+                CREATE TABLE IF NOT EXISTS indicadores_vendas_produtos_previsoes (
+                    DATA DATE NOT NULL,
+                    CodigoProduto INT(10) UNSIGNED NOT NULL,
+                    TotalUNVendidas DOUBLE,
+                    ValorTotalVendido DOUBLE,
+                    Promocao DECIMAL(3, 0),
+                    PRIMARY KEY (DATA, CodigoProduto)
+                );
+            """
         }
     ]
 
@@ -108,7 +121,8 @@ def drop_tables():
         "vendasprodutos_auxiliar",
         "produtosmaisvendidos",
         "indicadores_vendas_produtos",
-        "indicadores_vendas_produtos_resumo"
+        "indicadores_vendas_produtos_resumo",
+        "indicadores_vendas_produtos_previsoes"
     ]
 
     for table in tables_to_drop:
@@ -136,7 +150,7 @@ def insert_data():
                   (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t2,
                   (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t3,
                   (SELECT 0 AS num UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) t4
-                WHERE DATE_ADD('2019-01-01', INTERVAL t4.num * 10000 + t3.num * 1000 + t2.num * 100 + t1.num * 10 + t0.num DAY) < '2024-01-01';
+                WHERE DATE_ADD('2019-01-01', INTERVAL t4.num * 10000 + t3.num * 1000 + t2.num * 100 + t1.num * 10 + t0.num DAY) < '2024-07-01';
             """
         },
         {
@@ -170,21 +184,6 @@ def insert_data():
                 ORDER BY QuantidadeTotalVendida DESC 
                 LIMIT 2000;
             """
-        },
-        {
-            "table": "indicadores_vendas_produtos",
-            "query": """
-                INSERT INTO indicadores_vendas_produtos (
-                    DATA, CodigoVenda, CodigoProduto, CodigoSecao, CodigoGrupo, 
-                    CodigoSubGrupo, CodigoSupermercado, Quantidade, ValorTotal, Promocao
-                )
-                SELECT 
-                    v.DATA, v.Codigo AS CodigoVenda, vp.CodigoProduto, vp.CodigoSecao, 
-                    vp.CodigoGrupo, vp.CodigoSubGrupo, 1 AS CodigoSupermercado, 
-                    vp.Quantidade, vp.ValorTotal, vp.Promocao
-                FROM vendas_auxiliar v
-                INNER JOIN vendasprodutos_auxiliar vp ON v.Codigo = vp.CodigoVenda WHERE v.`DATA` IS NOT NULL;
-            """
         }
     ]
 
@@ -202,7 +201,10 @@ def configure_indexes():
     """
     indexes = [
         {"name": "idx_vendas_auxiliar", "table": "vendas_auxiliar", "columns": "Codigo"},
-        {"name": "idx_vendasprodutos_auxiliar", "table": "vendasprodutos_auxiliar", "columns": "CodigoProduto"},
+        {"name": "idx_vendas_auxiliar_data", "table": "vendas_auxiliar", "columns": "DATA"},
+        {"name": "idx_vendasprodutos_auxiliar", "table": "vendasprodutos_auxiliar", "columns": "Sequencia"},
+        {"name": "idx_vendasprodutos_auxiliar_CodigoProduto", "table": "vendasprodutos_auxiliar", "columns": "CodigoProduto"},
+        {"name": "idx_vendasprodutos_auxiliar_CodigoVenda", "table": "vendasprodutos_auxiliar", "columns": "CodigoVenda"},
         {"name": "idx_produtosmaisvendidos", "table": "produtosmaisvendidos", "columns": "CodigoProduto"},
         {"name": "idx_indicadores_vendas_produtos_codigo", "table": "indicadores_vendas_produtos", "columns": "CodigoProduto"},
         {"name": "idx_indicadores_vendas_produtos_data", "table": "indicadores_vendas_produtos", "columns": "DATA"},

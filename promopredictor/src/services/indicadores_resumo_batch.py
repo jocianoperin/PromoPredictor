@@ -2,16 +2,15 @@ import pandas as pd
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 import numpy as np
+import concurrent.futures
 
 logger = get_logger(__name__)
 
-# Função para buscar registros em blocos
 def fetch_data_in_batches(query, batch_size=100000):
     """
-    Busca dados em blocos (chunks) do banco de dados usando o método execute_query diretamente.
+    Busca os dados agregados em blocos do banco de dados.
     """
     try:
-        # Use a função db_manager.execute_query para obter dados
         result = db_manager.execute_query(query)
         if 'data' in result and 'columns' in result:
             logger.info(f"Quantidade de registros retornados: {len(result['data'])}")
@@ -24,64 +23,51 @@ def fetch_data_in_batches(query, batch_size=100000):
         logger.error(f"Erro ao buscar dados: {e}")
         return None
 
-
-# Inserir os dados processados no banco de dados
 def insert_data_in_batches(df, table_name):
     """
-    Insere os dados processados em lotes na tabela de destino usando pandas e db_manager.
+    Insere os dados agregados de resumo processados em lotes na tabela indicadores_vendas_produtos_resumo.
     """
     try:
-        for index, row in df.iterrows():
-            # Substituir valores NaN por NULL
+        for _, row in df.iterrows():
             row = row.replace({np.nan: 'NULL'})
-            
             insert_query = f"""
             INSERT INTO {table_name} (DATA, CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, 
                                        CodigoSupermercado, TotalUNVendidas, ValorTotalVendido, Promocao)
             VALUES ('{row['DATA']}', {row['CodigoProduto']}, {row['CodigoSecao']}, {row['CodigoGrupo']}, 
                     {row['CodigoSubGrupo']}, {row['CodigoSupermercado']}, {row['TotalUNVendidas']}, 
                     {row['ValorTotalVendido']}, {row['Promocao']})
+            ON DUPLICATE KEY UPDATE 
+                TotalUNVendidas = VALUES(TotalUNVendidas),
+                ValorTotalVendido = VALUES(ValorTotalVendido),
+                Promocao = VALUES(Promocao);
             """
-            # Ajustar o formato de valores NULL corretamente no SQL
             insert_query = insert_query.replace("'NULL'", "NULL")
-            
-            # Executar a query para cada linha sem encerrar a conexão
             db_manager.execute_query(insert_query)
         logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
     except Exception as e:
         logger.error(f"Erro ao inserir lote de dados: {e}")
 
-# Processar os dados e inserir no novo formato
 def process_data_and_insert():
     """
-    Processa os dados em blocos e insere na tabela indicadores_vendas_produtos_resumo.
+    Processa os dados de resumo em blocos e insere na tabela indicadores_vendas_produtos_resumo.
     """
-    # SQL para buscar e agrupar os dados
     query = """
-        SELECT c.DATA, p.CodigoProduto, 
-                COALESCE(va2.CodigoSecao, p.CodigoSecao) AS CodigoSecao, 
-                COALESCE(va2.CodigoGrupo, p.CodigoGrupo) AS CodigoGrupo,
-                COALESCE(va2.CodigoSubGrupo, p.CodigoSubGrupo) AS CodigoSubGrupo, 
-                COALESCE(va2.CodigoSupermercado, p.CodigoSupermercado) AS CodigoSupermercado,
-                ROUND(IFNULL(SUM(va2.Quantidade), 0), 2) AS TotalUNVendidas, 
-                ROUND(IFNULL(SUM(va2.ValorTotal), 0), 2) AS ValorTotalVendido, 
-                IFNULL(va2.Promocao, 0) AS Promocao
-        FROM calendario c 
-        JOIN indicadores_vendas_produtos p ON p.DATA = c.DATA
-        LEFT JOIN indicadores_vendas_produtos va2 
-        ON c.DATA = va2.DATA AND p.CodigoProduto = va2.CodigoProduto
-        GROUP BY c.DATA, p.CodigoProduto
-        ORDER BY p.CodigoProduto, c.DATA;
+        SELECT vp.DATA, vp.CodigoProduto, vp.CodigoSecao, vp.CodigoGrupo, vp.CodigoSubGrupo, 
+               1 AS CodigoSupermercado, 
+               SUM(vp.Quantidade) AS TotalUNVendidas, 
+               SUM(vp.ValorTotal) AS ValorTotalVendido, 
+               CASE WHEN MAX(vp.Promocao) > 0 THEN 1 ELSE 0 END AS Promocao
+        FROM vendasprodutos_auxiliar vp
+        WHERE vp.DATA IS NOT NULL
+        GROUP BY vp.DATA, vp.CodigoProduto, vp.CodigoSecao, vp.CodigoGrupo, vp.CodigoSubGrupo;
     """
-    
-    logger.info("Iniciando processamento em blocos para a tabela indicadores_vendas_produtos_resumo...")
-    
+
+    logger.info("Iniciando processamento dos dados de resumo de vendas...")
+
     try:
-        # Iterar sobre os dados em blocos
-        for df_batch in fetch_data_in_batches(query):
-            # Inserir o lote de dados processados no banco de destino
-            insert_data_in_batches(df_batch, 'indicadores_vendas_produtos_resumo')
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(insert_data_in_batches, df_batch, 'indicadores_vendas_produtos_resumo') for df_batch in fetch_data_in_batches(query)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
     except Exception as e:
-        logger.error(f"Erro durante o processo de inserção de dados: {e}")
-    else:
-        logger.info("Processamento e inserção finalizados com sucesso.")
+        logger.error(f"Erro durante o processamento e inserção de dados: {e}")
