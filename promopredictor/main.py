@@ -28,20 +28,10 @@ def main():
     # 3. Inserir os dados nas tabelas vendas_auxiliar, vendasprodutos_auxiliar etc.
     logger.info("3. Inserindo dados nas tabelas principais...")
     insert_data()
-    logger.info("Dados inseridos com sucesso.")"""
+    logger.info("Dados inseridos com sucesso.")
 
-    # 4. Inserir os dados na tabela indicadores_vendas_produtos
-    logger.info("4. Inserindo dados na tabela indicadores_vendas_produtos...")
-    process_indicadores_vendas()
-    logger.info("Dados inseridos na tabela indicadores_vendas_produtos com sucesso.")
-
-    # 5. Configurar os índices nas tabelas
-    logger.info("5. Configurando índices nas tabelas...")
-    configure_indexes()
-    logger.info("Índices configurados com sucesso.")
-
-    """# 6. Validações e Limpeza de Dados
-    logger.info("6. Iniciando validações de dados...")
+    # 4. Validações e Limpeza de Dados
+    logger.info("4. Iniciando validações de dados...")
 
     # Remover registros inválidos da tabela vendas_auxiliar
     logger.info("Removendo registros inválidos da tabela 'vendas_auxiliar'...")
@@ -64,6 +54,16 @@ def main():
     check_data_types('indicadores_vendas_produtos', {'Quantidade': 'DOUBLE', 'ValorTotal': 'DOUBLE', 'Promocao': 'DECIMAL(3,0)'})
     logger.info("Tipos de dados verificados e ajustados.")
 
+    # 5. Inserir os dados na tabela indicadores_vendas_produtos
+    logger.info("5. Inserindo dados na tabela indicadores_vendas_produtos...")
+    process_indicadores_vendas()
+    logger.info("Dados inseridos na tabela indicadores_vendas_produtos com sucesso.")
+
+    # 6. Configurar os índices nas tabelas
+    logger.info("6. Configurando índices nas tabelas...")
+    configure_indexes()
+    logger.info("Índices configurados com sucesso.")"""
+
     # 7. Processamento dos dados para indicadores de resumo
     logger.info("7. Processando dados de indicadores de vendas para resumo...")
     process_resumo()
@@ -71,8 +71,8 @@ def main():
 
     # 8. Previsão e Inserção dos Dados Previstos
     logger.info("8. Realizando previsões e inserindo dados previstos...")
-    make_predictions()  # Chamando a função de previsão para realizar e inserir previsões
-    logger.info("Previsões realizadas e inseridas com sucesso.")"""
+    #make_predictions()  # Chamando a função de previsão para realizar e inserir previsões
+    logger.info("Previsões realizadas e inseridas com sucesso.")
 
     logger.info("==== Processo finalizado com sucesso! ====")
 

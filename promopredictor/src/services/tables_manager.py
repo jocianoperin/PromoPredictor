@@ -110,7 +110,6 @@ def create_tables():
         except Exception as e:
             logger.error(f"Erro ao criar tabela '{table['name']}': {e}")
 
-
 def drop_tables():
     """
     Exclui todas as tabelas no banco de dados.
