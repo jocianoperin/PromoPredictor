@@ -73,7 +73,7 @@ def process_data_and_insert():
         LEFT JOIN indicadores_vendas_produtos vp
             ON cal.DATA = vp.DATA
             AND p.CodigoProduto = vp.CodigoProduto
-        GROUP BY cal.DATA, p.CodigoProduto, p.CodigoSecao, p.CodigoGrupo, p.CodigoSubGrupo;
+        GROUP BY cal.DATA, p.CodigoProduto;
     """
 
     logger.info("Iniciando processamento dos dados de resumo de vendas...")
