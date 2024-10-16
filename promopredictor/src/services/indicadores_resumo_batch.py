@@ -1,34 +1,54 @@
 import pandas as pd
+from dotenv import load_dotenv
+from sqlalchemy import text
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 import numpy as np
-import concurrent.futures
+
+# Carregar as variáveis do arquivo .env
+load_dotenv()
 
 logger = get_logger(__name__)
 
 def fetch_data_in_batches(query, batch_size=100000):
-    offset = 0
-    try:
-        while True:
-            paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset};"
-            result = db_manager.execute_query(paginated_query)
+    """
+    Busca os dados em lotes usando SQLAlchemy.
 
-            if 'data' in result and 'columns' in result:
-                if len(result['data']) == 0:
-                    break
-                df = pd.DataFrame(result['data'], columns=result['columns'])
-                logger.info(f"Batch com {len(df)} registros retornado.")
-                yield df  # Retorna o DataFrame como batch
-            else:
-                logger.warning("Nenhum dado foi retornado pela query.")
+    Args:
+        query (str): A consulta SQL a ser executada.
+        batch_size (int): Tamanho do lote.
+
+    Yields:
+        pd.DataFrame: DataFrame com o lote de dados.
+    """
+    offset = 0
+    while True:
+        paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset};"
+        try:
+            result = db_manager.execute_query(paginated_query)
+        except Exception as e:
+            logger.error(f"Erro ao executar query no batch: {e}")
+            raise
+
+        if 'data' in result and 'columns' in result:
+            if len(result['data']) == 0:
                 break
-            offset += batch_size
-    except Exception as e:
-        logger.error(f"Erro ao buscar dados: {e}")
+            df = pd.DataFrame(result['data'], columns=result['columns'])
+            logger.info(f"Batch com {len(df)} registros retornado.")
+            yield df
+        else:
+            logger.warning("Nenhum dado foi retornado pela query.")
+            break
+        offset += batch_size
 
 def insert_data_in_batches(df, table_name, batch_size=1000):
     """
-    Insere os dados agregados de resumo processados em lotes na tabela indicadores_vendas_produtos_resumo.
+    Insere os dados em lotes na tabela especificada usando SQLAlchemy.
+
+    Args:
+        df (pd.DataFrame): DataFrame com os dados a serem inseridos.
+        table_name (str): Nome da tabela de destino.
+        batch_size (int): Tamanho do lote para inserção.
     """
     try:
         logger.info(f"Iniciando inserção de dados.")
@@ -36,37 +56,44 @@ def insert_data_in_batches(df, table_name, batch_size=1000):
         batches = [df[i:i + batch_size] for i in range(0, df.shape[0], batch_size)]
 
         for batch in batches:
-            values = []
-            for _, row in batch.iterrows():
-                row = row.replace({np.nan: 'NULL'})
-                values.append(f"('{row['DATA']}', {row['CodigoProduto']}, {row['CodigoSecao']}, "
-                              f"{row['CodigoGrupo']}, {row['CodigoSubGrupo']}, {row['TotalUNVendidas']}, "
-                              f"{row['ValorTotalVendido']}, {row['Promocao']})")
-            
+            # Preparar os dados para inserção
+            batch = batch.replace({np.nan: None})
+            values = batch.to_dict(orient='records')
+
             insert_query = f"""
-            INSERT INTO {table_name} (DATA, CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, 
-                                       TotalUNVendidas, ValorTotalVendido, Promocao)
-            VALUES {', '.join(values)}
+            INSERT INTO {table_name} (DATA, CodigoProduto, CodigoSecao, CodigoGrupo,
+                                       CodigoSubGrupo, TotalUNVendidas, ValorTotalVendido, Promocao)
+            VALUES (:DATA, :CodigoProduto, :CodigoSecao, :CodigoGrupo,
+                    :CodigoSubGrupo, :TotalUNVendidas, :ValorTotalVendido, :Promocao)
             ON DUPLICATE KEY UPDATE 
                 TotalUNVendidas = VALUES(TotalUNVendidas),
                 ValorTotalVendido = VALUES(ValorTotalVendido),
                 Promocao = VALUES(Promocao);
             """
-            insert_query = insert_query.replace("'NULL'", "NULL")  # Substituir 'NULL' string por NULL literal em SQL
-            
-            # Usa a mesma conexão para cada batch
-            db_manager.execute_query(insert_query)
-        
+
+            connection = db_manager.get_connection()
+            try:
+                logger.debug(f"Inserindo batch de tamanho {len(batch)}.")
+                connection.execute(text(insert_query), values)
+                connection.commit()  # Comitar após cada batch
+            except Exception as e:
+                logger.error(f"Erro ao inserir lote de dados: {e}")
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
+
         logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
     except Exception as e:
-        logger.error(f"Erro ao inserir lote de dados: {e}")
+        logger.error(f"Erro ao inserir dados: {e}")
+        raise
 
 def process_data_and_insert():
     """
-    Processa os dados de resumo em blocos e insere na tabela indicadores_vendas_produtos_resumo.
+    Processa os dados de resumo em blocos e insere na tabela indicada.
     """
     query = """
-        SELECT cal.DATA, p.CodigoProduto, p.CodigoSecao, p.CodigoGrupo, p.CodigoSubGrupo, 
+        SELECT cal.DATA, p.CodigoProduto, IFNULL(p.CodigoSecao, 0) as CodigoSecao, IFNULL(p.CodigoGrupo, 0) as CodigoGrupo, IFNULL(p.CodigoSubGrupo, 0) as CodigoSubGrupo, 
                IFNULL(SUM(vp.Quantidade), 0) AS TotalUNVendidas, 
                IFNULL(SUM(vp.ValorTotal), 0) AS ValorTotalVendido, 
                IFNULL(MAX(vp.Promocao), 0) AS Promocao
@@ -75,18 +102,15 @@ def process_data_and_insert():
         LEFT JOIN indicadores_vendas_produtos vp
             ON cal.DATA = vp.DATA
             AND p.CodigoProduto = vp.CodigoProduto
-        GROUP BY cal.DATA, p.CodigoProduto;
+        GROUP BY cal.DATA, p.CodigoProduto
+        ORDER BY cal.DATA, p.CodigoProduto
     """
 
     logger.info("Iniciando processamento dos dados de resumo de vendas...")
 
     try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(insert_data_in_batches, df_batch, 'indicadores_vendas_produtos_resumo')
-                for df_batch in fetch_data_in_batches(query)
-            ]
-            for future in concurrent.futures.as_completed(futures):
-                future.result()
+        for df_batch in fetch_data_in_batches(query):
+            insert_data_in_batches(df_batch, 'indicadores_vendas_produtos_resumo')
     except Exception as e:
         logger.error(f"Erro durante o processamento e inserção de dados: {e}")
+        raise
