@@ -4,7 +4,7 @@ from src.services.data_cleaner import remove_invalid_records
 from src.services.indicadores_resumo_batch import process_data_and_insert as process_resumo
 from src.services.indicadores_vendas_produtos import process_data_and_insert as process_indicadores_vendas
 from src.services.data_formatter import check_data_types, standardize_formatting
-from src.models.predict import make_predictions  # Adicionar a previsão ao pipeline
+#from src.models.predict import make_predictions
 
 logger = get_logger(__name__)
 
