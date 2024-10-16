@@ -49,7 +49,10 @@ def create_tables():
             "query": """
                 CREATE TABLE IF NOT EXISTS produtosmaisvendidos (
                     CodigoProduto INT(10) UNSIGNED PRIMARY KEY,
-                    QuantidadeTotalVendida DOUBLE DEFAULT 0
+                    QuantidadeTotalVendida DOUBLE DEFAULT 0,
+                    CodigoSecao INT(10) UNSIGNED,
+                    CodigoGrupo INT(10) UNSIGNED,
+                    CodigoSubGrupo INT(10) UNSIGNED
                 );
             """
         },
@@ -176,12 +179,12 @@ def insert_data():
         {
             "table": "produtosmaisvendidos",
             "query": """
-                INSERT INTO produtosmaisvendidos (CodigoProduto, QuantidadeTotalVendida)
-                SELECT CodigoProduto, SUM(Quantidade) AS QuantidadeTotalVendida 
+                INSERT INTO produtosmaisvendidos (CodigoProduto, QuantidadeTotalVendida, CodigoSecao, CodigoGrupo, CodigoSubgrupo)
+                SELECT CodigoProduto, SUM(Quantidade) AS QuantidadeTotalVendida, CodigoSecao, CodigoGrupo, CodigoSubgrupo
                 FROM vendasprodutos_auxiliar 
                 GROUP BY CodigoProduto 
                 ORDER BY QuantidadeTotalVendida DESC 
-                LIMIT 2000;
+                LIMIT 2000
             """
         }
     ]

@@ -40,20 +40,19 @@ def insert_data_in_batches(df, table_name, batch_size=1000):
             for _, row in batch.iterrows():
                 row = row.replace({np.nan: 'NULL'})
                 values.append(f"('{row['DATA']}', {row['CodigoProduto']}, {row['CodigoSecao']}, "
-                              f"{row['CodigoGrupo']}, {row['CodigoSubGrupo']}, {row['CodigoSupermercado']}, "
-                              f"{row['TotalUNVendidas']}, {row['ValorTotalVendido']}, {row['Promocao']})")
+                              f"{row['CodigoGrupo']}, {row['CodigoSubGrupo']}, {row['TotalUNVendidas']}, "
+                              f"{row['ValorTotalVendido']}, {row['Promocao']})")
             
             insert_query = f"""
             INSERT INTO {table_name} (DATA, CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, 
-                                       CodigoSupermercado, TotalUNVendidas, ValorTotalVendido, Promocao)
+                                       TotalUNVendidas, ValorTotalVendido, Promocao)
             VALUES {', '.join(values)}
             ON DUPLICATE KEY UPDATE 
                 TotalUNVendidas = VALUES(TotalUNVendidas),
                 ValorTotalVendido = VALUES(ValorTotalVendido),
                 Promocao = VALUES(Promocao);
             """
-            # Substituir 'NULL' string por NULL literal em SQL
-            insert_query = insert_query.replace("'NULL'", "NULL")
+            insert_query = insert_query.replace("'NULL'", "NULL")  # Substituir 'NULL' string por NULL literal em SQL
             db_manager.execute_query(insert_query)
         
         logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
@@ -65,14 +64,16 @@ def process_data_and_insert():
     Processa os dados de resumo em blocos e insere na tabela indicadores_vendas_produtos_resumo.
     """
     query = """
-        SELECT vp.DATA, vp.CodigoProduto, vp.CodigoSecao, vp.CodigoGrupo, vp.CodigoSubGrupo, 
-               1 AS CodigoSupermercado, 
-               SUM(vp.Quantidade) AS TotalUNVendidas, 
-               SUM(vp.ValorTotal) AS ValorTotalVendido, 
-               CASE WHEN MAX(vp.Promocao) > 0 THEN 1 ELSE 0 END AS Promocao
-        FROM indicadores_vendas_produtos vp
-        WHERE vp.DATA IS NOT NULL
-        GROUP BY vp.DATA, vp.CodigoProduto, vp.CodigoSecao, vp.CodigoGrupo, vp.CodigoSubGrupo;
+        SELECT cal.DATA, p.CodigoProduto, p.CodigoSecao, p.CodigoGrupo, p.CodigoSubGrupo, 
+               IFNULL(SUM(vp.Quantidade), 0) AS TotalUNVendidas, 
+               IFNULL(SUM(vp.ValorTotal), 0) AS ValorTotalVendido, 
+               IFNULL(MAX(vp.Promocao), 0) AS Promocao
+        FROM calendario cal
+        CROSS JOIN produtosmaisvendidos p
+        LEFT JOIN indicadores_vendas_produtos vp
+            ON cal.DATA = vp.DATA
+            AND p.CodigoProduto = vp.CodigoProduto
+        GROUP BY cal.DATA, p.CodigoProduto, p.CodigoSecao, p.CodigoGrupo, p.CodigoSubGrupo;
     """
 
     logger.info("Iniciando processamento dos dados de resumo de vendas...")
