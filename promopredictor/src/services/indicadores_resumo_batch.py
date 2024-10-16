@@ -3,7 +3,6 @@ from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 import numpy as np
 import concurrent.futures
-import threading
 
 logger = get_logger(__name__)
 
@@ -11,20 +10,18 @@ def fetch_data_in_batches(query, batch_size=100000):
     offset = 0
     try:
         while True:
-            # Cria uma nova conexão para cada lote de dados
-            with db_manager.get_connection() as connection:
-                paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset};"
-                result = db_manager.execute_query(paginated_query)
+            paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset};"
+            result = db_manager.execute_query(paginated_query)
 
-                if 'data' in result and 'columns' in result:
-                    if len(result['data']) == 0:
-                        break
-                    df = pd.DataFrame(result['data'], columns=result['columns'])
-                    logger.info(f"Batch com {len(df)} registros retornado.")
-                    yield df  # Retorna o DataFrame como batch
-                else:
-                    logger.warning("Nenhum dado foi retornado pela query.")
+            if 'data' in result and 'columns' in result:
+                if len(result['data']) == 0:
                     break
+                df = pd.DataFrame(result['data'], columns=result['columns'])
+                logger.info(f"Batch com {len(df)} registros retornado.")
+                yield df  # Retorna o DataFrame como batch
+            else:
+                logger.warning("Nenhum dado foi retornado pela query.")
+                break
             offset += batch_size
     except Exception as e:
         logger.error(f"Erro ao buscar dados: {e}")
@@ -32,14 +29,12 @@ def fetch_data_in_batches(query, batch_size=100000):
 def insert_data_in_batches(df, table_name, batch_size=1000):
     """
     Insere os dados agregados de resumo processados em lotes na tabela indicadores_vendas_produtos_resumo.
-    Utiliza threading para maior controle em ambientes de execução paralela.
     """
     try:
-        thread_name = threading.current_thread().name
-        logger.info(f"Thread {thread_name}: Iniciando inserção de dados.")
+        logger.info(f"Iniciando inserção de dados.")
 
         batches = [df[i:i + batch_size] for i in range(0, df.shape[0], batch_size)]
-        
+
         for batch in batches:
             values = []
             for _, row in batch.iterrows():
@@ -59,19 +54,16 @@ def insert_data_in_batches(df, table_name, batch_size=1000):
             """
             insert_query = insert_query.replace("'NULL'", "NULL")  # Substituir 'NULL' string por NULL literal em SQL
             
-            # Usa uma nova conexão para cada batch
-            with db_manager.get_connection() as connection:
-                db_manager.execute_query(insert_query)
+            # Usa a mesma conexão para cada batch
+            db_manager.execute_query(insert_query)
         
-        logger.info(f"Thread {thread_name}: Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
+        logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
     except Exception as e:
-        logger.error(f"Thread {thread_name}: Erro ao inserir lote de dados: {e}")
-
+        logger.error(f"Erro ao inserir lote de dados: {e}")
 
 def process_data_and_insert():
     """
     Processa os dados de resumo em blocos e insere na tabela indicadores_vendas_produtos_resumo.
-    Cada operação é isolada com uma nova conexão para evitar conflitos.
     """
     query = """
         SELECT cal.DATA, p.CodigoProduto, p.CodigoSecao, p.CodigoGrupo, p.CodigoSubGrupo, 
@@ -89,7 +81,6 @@ def process_data_and_insert():
     logger.info("Iniciando processamento dos dados de resumo de vendas...")
 
     try:
-        # Executor com multithreading
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(insert_data_in_batches, df_batch, 'indicadores_vendas_produtos_resumo')
