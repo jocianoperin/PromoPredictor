@@ -4,11 +4,21 @@ from sqlalchemy import text
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 import numpy as np
+import os
 
 # Carregar as variáveis do arquivo .env
 load_dotenv()
 
 logger = get_logger(__name__)
+
+# Determinar o valor de codigosupermercado com base no nome do banco de dados
+DB_NAME = os.getenv('DB_NAME')
+if DB_NAME == 'ubialli':
+    codigosupermercado = 1
+elif DB_NAME == 'atena':
+    codigosupermercado = 2
+else:
+    codigosupermercado = 0
 
 def fetch_data_in_batches(query, batch_size=100000):
     """
@@ -53,22 +63,26 @@ def insert_data_in_batches(df, table_name, batch_size=1000):
     try:
         logger.info(f"Iniciando inserção de dados.")
 
+        # Adicionar a coluna codigosupermercado ao DataFrame
+        df['codigosupermercado'] = codigosupermercado
+
         batches = [df[i:i + batch_size] for i in range(0, df.shape[0], batch_size)]
 
         for batch in batches:
             # Preparar os dados para inserção
-            batch = batch.replace({np.nan: None})
+            batch = batch.replace({np.nan: 0})  # Substituir NaN por 0
             values = batch.to_dict(orient='records')
 
             insert_query = f"""
             INSERT INTO {table_name} (DATA, CodigoProduto, CodigoSecao, CodigoGrupo,
-                                       CodigoSubGrupo, TotalUNVendidas, ValorTotalVendido, Promocao)
+                                       CodigoSubGrupo, TotalUNVendidas, ValorTotalVendido, Promocao, codigosupermercado)
             VALUES (:DATA, :CodigoProduto, :CodigoSecao, :CodigoGrupo,
-                    :CodigoSubGrupo, :TotalUNVendidas, :ValorTotalVendido, :Promocao)
+                    :CodigoSubGrupo, :TotalUNVendidas, :ValorTotalVendido, :Promocao, :codigosupermercado)
             ON DUPLICATE KEY UPDATE 
                 TotalUNVendidas = VALUES(TotalUNVendidas),
                 ValorTotalVendido = VALUES(ValorTotalVendido),
-                Promocao = VALUES(Promocao);
+                Promocao = VALUES(Promocao),
+                codigosupermercado = VALUES(codigosupermercado);
             """
 
             connection = db_manager.get_connection()
@@ -92,10 +106,14 @@ def process_data_and_insert():
     """
     Processa os dados de resumo em blocos e insere na tabela indicada.
     """
-    query = """
-        SELECT cal.DATA, p.CodigoProduto, IFNULL(p.CodigoSecao, 0) as CodigoSecao, IFNULL(p.CodigoGrupo, 0) as CodigoGrupo, IFNULL(p.CodigoSubGrupo, 0) as CodigoSubGrupo, 
-               IFNULL(SUM(vp.Quantidade), 0) AS TotalUNVendidas, 
-               IFNULL(SUM(vp.ValorTotal), 0) AS ValorTotalVendido, 
+    query = f"""
+        SELECT cal.DATA,
+               p.CodigoProduto,
+               IFNULL(p.CodigoSecao, 0) AS CodigoSecao,
+               IFNULL(p.CodigoGrupo, 0) AS CodigoGrupo,
+               IFNULL(p.CodigoSubGrupo, 0) AS CodigoSubGrupo,
+               IFNULL(SUM(vp.Quantidade), 0) AS TotalUNVendidas,
+               IFNULL(SUM(vp.ValorTotal), 0) AS ValorTotalVendido,
                IFNULL(MAX(vp.Promocao), 0) AS Promocao
         FROM calendario cal
         CROSS JOIN produtosmaisvendidos p
