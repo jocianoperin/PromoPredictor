@@ -55,10 +55,14 @@ def insert_predictions(df_pred):
         # Transformar o DataFrame em uma lista de dicionários
         values = df_pred.to_dict(orient='records')
 
-        # Query de inserção com parâmetros nomeados
+        # Query de inserção com 'ON DUPLICATE KEY UPDATE'
         insert_query = """
         INSERT INTO indicadores_vendas_produtos_previsoes (DATA, CodigoProduto, TotalUNVendidas, ValorTotalVendido, Promocao)
         VALUES (:DATA, :CodigoProduto, :TotalUNVendidas, :ValorTotalVendido, :Promocao)
+        ON DUPLICATE KEY UPDATE
+            TotalUNVendidas = VALUES(TotalUNVendidas),
+            ValorTotalVendido = VALUES(ValorTotalVendido),
+            Promocao = VALUES(Promocao)
         """
 
         # Executar a inserção em lote
@@ -110,6 +114,10 @@ def make_predictions():
         df_pred_full['TotalUNVendidas'] = pred_un
         df_pred_full['ValorTotalVendido'] = pred_valor
 
+        # Garantir que os valores sejam não negativos
+        df_pred_full['TotalUNVendidas'] = df_pred_full['TotalUNVendidas'].clip(lower=0)
+        df_pred_full['ValorTotalVendido'] = df_pred_full['ValorTotalVendido'].clip(lower=0)
+
         # Preparar os dados para inserção
         df_pred_full['DATA'] = df_pred_full['DATA'].dt.strftime('%Y-%m-%d')
         df_pred_full['TotalUNVendidas'] = df_pred_full['TotalUNVendidas'].round().astype(int)
@@ -118,7 +126,22 @@ def make_predictions():
         # Selecionar as colunas necessárias
         df_to_insert = df_pred_full[['DATA', 'CodigoProduto', 'TotalUNVendidas', 'ValorTotalVendido', 'Promocao']]
 
+        # Opcional: Limpar a tabela antes de inserir novas previsões
+        clear_predictions_table()
+
         # Inserir as previsões no banco de dados
         insert_predictions(df_to_insert)
     else:
         logger.error("Não há dados disponíveis para fazer a previsão.")
+
+# Opcional: função para limpar a tabela de previsões
+def clear_predictions_table():
+    """
+    Limpa a tabela de previsões antes de inserir novas previsões.
+    """
+    try:
+        delete_query = "DELETE FROM indicadores_vendas_produtos_previsoes"
+        db_manager.execute_query(delete_query)
+        logger.info("Tabela de previsões limpa com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro ao limpar a tabela de previsões: {e}")
