@@ -4,8 +4,8 @@ from src.services.data_cleaner import remove_invalid_records
 from src.services.indicadores_resumo_batch import process_data_and_insert as process_resumo
 from src.services.indicadores_vendas_produtos import process_data_and_insert as process_indicadores_vendas
 from src.services.data_formatter import check_data_types, standardize_formatting
-from src.models.predict import make_predictions
-from src.models.training_pipeline import train_and_save_model
+from src.models.predict_sales import make_predictions
+from src.models.train_model import train_and_save_models
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ def main():
 
     # 8. Treinamento e Salvamento dos Modelos
     logger.info("8. Treinando e salvando os modelos...")
-    train_and_save_model()
+    train_and_save_models()
     logger.info("Modelos treinados e salvos com sucesso.")
 
     # 9. Previsão e Inserção dos Dados Previstos

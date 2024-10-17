@@ -173,3 +173,6 @@ datasettest/
 
 promopredictor.zip
 promopredictor.rar
+
+#Modelos treinados
+trained_models/
