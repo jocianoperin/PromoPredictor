@@ -140,7 +140,7 @@ def clear_predictions_table():
     Limpa a tabela de previsões antes de inserir novas previsões.
     """
     try:
-        delete_query = "DELETE FROM indicadores_vendas_produtos_previsoes"
+        delete_query = "TRUNCATE indicadores_vendas_produtos_previsoes"
         db_manager.execute_query(delete_query)
         logger.info("Tabela de previsões limpa com sucesso.")
     except Exception as e:
