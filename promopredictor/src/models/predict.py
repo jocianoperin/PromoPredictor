@@ -1,13 +1,14 @@
 import pandas as pd
-from src.models.training_pipeline import train_model
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
+import joblib
+from datetime import datetime, timedelta
 
 logger = get_logger(__name__)
 
 def fetch_data_for_prediction():
     """
-    Busca os produtos e atributos relevantes até 31/12/2023, que serão usados para fazer previsões futuras.
+    Busca os produtos e atributos relevantes para fazer previsões futuras.
     """
     query = """
         SELECT DISTINCT CodigoProduto, Promocao
@@ -26,21 +27,52 @@ def fetch_data_for_prediction():
         logger.error(f"Erro ao buscar dados para previsão: {e}")
         return None
 
+def preprocess_data_for_prediction(df, trained_columns):
+    """
+    Preprocessa os dados de previsão de acordo com os dados de treinamento.
+    """
+    df['CodigoProduto'] = df['CodigoProduto'].astype('category')
+    df['Promocao'] = df['Promocao'].astype(int)
+
+    # Criar variáveis dummy para 'CodigoProduto' com as mesmas colunas do treinamento
+    df = pd.get_dummies(df, columns=['CodigoProduto'])
+
+    # Garantir que todas as colunas do treinamento estejam presentes
+    missing_cols = set(trained_columns) - set(df.columns)
+    for col in missing_cols:
+        df[col] = 0
+
+    # Ordenar as colunas de acordo com o modelo treinado
+    df = df[trained_columns]
+
+    return df
+
 def insert_predictions(df_pred):
     """
     Insere as previsões na tabela indicadores_vendas_produtos_previsoes.
     """
     try:
-        for _, row in df_pred.iterrows():
-            insert_query = f"""
-            INSERT INTO indicadores_vendas_produtos_previsoes (DATA, CodigoProduto, TotalUNVendidas, ValorTotalVendido, Promocao)
-            VALUES ('2024-01-01', {row['CodigoProduto']}, {row['PredictedTotalUNVendidas']}, 
-                    {row['PredictedValorTotalVendido']}, {row['Promocao']});
-            """
-            db_manager.execute_query(insert_query)
+        # Transformar o DataFrame em uma lista de dicionários
+        values = df_pred.to_dict(orient='records')
+
+        # Query de inserção com parâmetros nomeados
+        insert_query = """
+        INSERT INTO indicadores_vendas_produtos_previsoes (DATA, CodigoProduto, TotalUNVendidas, ValorTotalVendido, Promocao)
+        VALUES (:DATA, :CodigoProduto, :TotalUNVendidas, :ValorTotalVendido, :Promocao)
+        """
+
+        # Executar a inserção em lote
+        db_manager.execute_query(insert_query, params=values)
         logger.info(f"Previsões inseridas com sucesso.")
     except Exception as e:
         logger.error(f"Erro ao inserir previsões: {e}")
+
+def generate_prediction_dates(start_date, end_date):
+    """
+    Gera uma lista de datas para o período de previsão.
+    """
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    return dates
 
 def make_predictions():
     """
@@ -50,19 +82,43 @@ def make_predictions():
     
     if df_pred is not None:
         # Carrega os modelos treinados
-        model_un, model_valor = train_model()
+        try:
+            model_un = joblib.load('model_un.pkl')
+            model_valor = joblib.load('model_valor.pkl')
+        except Exception as e:
+            logger.error(f"Erro ao carregar os modelos treinados: {e}")
+            return
 
-        if model_un is not None and model_valor is not None:
-            # Realiza as previsões
-            pred_un = model_un.predict(df_pred[['CodigoProduto', 'Promocao']])
-            pred_valor = model_valor.predict(df_pred[['CodigoProduto', 'Promocao']])
-            
-            df_pred['PredictedTotalUNVendidas'] = pred_un
-            df_pred['PredictedValorTotalVendido'] = pred_valor
-            
-            # Insere as previsões no banco de dados
-            insert_predictions(df_pred)
-        else:
-            logger.error("Os modelos não foram carregados corretamente.")
+        # Gerar as datas de previsão
+        dates = generate_prediction_dates('2024-01-01', '2024-03-31')
+        df_dates = pd.DataFrame({'DATA': dates})
+
+        # Criar um DataFrame com todas as combinações de produtos e datas
+        df_pred['key'] = 1
+        df_dates['key'] = 1
+        df_pred_full = df_pred.merge(df_dates, on='key').drop('key', axis=1)
+
+        # Preprocessar os dados de previsão
+        trained_columns = model_un.get_booster().feature_names
+        df_pred_processed = preprocess_data_for_prediction(df_pred_full, trained_columns)
+
+        # Realizar as previsões
+        pred_un = model_un.predict(df_pred_processed)
+        pred_valor = model_valor.predict(df_pred_processed)
+        
+        # Adicionar as previsões ao DataFrame original
+        df_pred_full['TotalUNVendidas'] = pred_un
+        df_pred_full['ValorTotalVendido'] = pred_valor
+
+        # Preparar os dados para inserção
+        df_pred_full['DATA'] = df_pred_full['DATA'].dt.strftime('%Y-%m-%d')
+        df_pred_full['TotalUNVendidas'] = df_pred_full['TotalUNVendidas'].round().astype(int)
+        df_pred_full['ValorTotalVendido'] = df_pred_full['ValorTotalVendido'].round(2)
+        
+        # Selecionar as colunas necessárias
+        df_to_insert = df_pred_full[['DATA', 'CodigoProduto', 'TotalUNVendidas', 'ValorTotalVendido', 'Promocao']]
+
+        # Inserir as previsões no banco de dados
+        insert_predictions(df_to_insert)
     else:
         logger.error("Não há dados disponíveis para fazer a previsão.")

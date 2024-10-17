@@ -4,7 +4,8 @@ from src.services.data_cleaner import remove_invalid_records
 from src.services.indicadores_resumo_batch import process_data_and_insert as process_resumo
 from src.services.indicadores_vendas_produtos import process_data_and_insert as process_indicadores_vendas
 from src.services.data_formatter import check_data_types, standardize_formatting
-#from src.models.predict import make_predictions
+from src.models.predict import make_predictions
+from src.models.training_pipeline import train_and_save_model
 
 logger = get_logger(__name__)
 
@@ -14,9 +15,9 @@ def main():
     validação e limpeza de registros, com logs detalhados.
     """
 
-    """# 1. Dropar tabelas antigas
+    # 1. Dropar tabelas antigas
     logger.info("==== Início do processo ====")
-    logger.info("1. Excluindo tabelas antigas...")
+    """logger.info("1. Excluindo tabelas antigas...")
     drop_tables()
     logger.info("Tabelas antigas excluídas com sucesso.")
 
@@ -62,16 +63,21 @@ def main():
     # 6. Configurar os índices nas tabelas
     logger.info("6. Configurando índices nas tabelas...")
     configure_indexes()
-    logger.info("Índices configurados com sucesso.")"""
+    logger.info("Índices configurados com sucesso.")
 
     # 7. Processamento dos dados para indicadores de resumo
     logger.info("7. Processando dados de indicadores de vendas para resumo...")
     process_resumo()
-    logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")
+    logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")"""
 
-    # 8. Previsão e Inserção dos Dados Previstos
-    logger.info("8. Realizando previsões e inserindo dados previstos...")
-    #make_predictions()  # Chamando a função de previsão para realizar e inserir previsões
+    # 8. Treinamento e Salvamento dos Modelos
+    logger.info("8. Treinando e salvando os modelos...")
+    train_and_save_model()
+    logger.info("Modelos treinados e salvos com sucesso.")
+
+    # 9. Previsão e Inserção dos Dados Previstos
+    logger.info("9. Realizando previsões e inserindo dados previstos...")
+    make_predictions()  # Chamando a função de previsão para realizar e inserir previsões
     logger.info("Previsões realizadas e inseridas com sucesso.")
 
     logger.info("==== Processo finalizado com sucesso! ====")
