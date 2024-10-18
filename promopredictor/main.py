@@ -68,12 +68,12 @@ def main():
     # 7. Processamento dos dados para indicadores de resumo
     logger.info("7. Processando dados de indicadores de vendas para resumo...")
     process_resumo()
-    logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")"""
+    logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")
 
     # 8. Treinamento e Salvamento dos Modelos
     logger.info("8. Treinando e salvando os modelos...")
     train_and_save_models()
-    logger.info("Modelos treinados e salvos com sucesso.")
+    logger.info("Modelos treinados e salvos com sucesso.")"""
 
     # 9. Previsão e Inserção dos Dados Previstos
     logger.info("9. Realizando previsões e inserindo dados previstos...")

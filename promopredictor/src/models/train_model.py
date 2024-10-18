@@ -1,11 +1,11 @@
 import pandas as pd
 import os
-from sklearn.model_selection import TimeSeriesSplit
 import xgboost as xgb
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OrdinalEncoder
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 import joblib
+import holidays
 
 logger = get_logger(__name__)
 
@@ -53,11 +53,17 @@ def preprocess_data(df):
         df['dia'] = df['DATA'].dt.day
         df['ano'] = df['DATA'].dt.year
 
+        # Adicionar feature de feriado
+        br_holidays = holidays.Brazil()
+        df['feriado'] = df['DATA'].apply(lambda x: 1 if x in br_holidays else 0)
+
         # Lags e médias móveis para cada produto
         df['TotalUNVendidas_lag1'] = df.groupby('CodigoProduto')['TotalUNVendidas'].shift(1)
-        df['TotalUNVendidas_7d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(lambda x: x.rolling(7, min_periods=1).mean())
+        df['TotalUNVendidas_7d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(
+            lambda x: x.shift(1).rolling(7, min_periods=1).mean())
         df['ValorTotalVendido_lag1'] = df.groupby('CodigoProduto')['ValorTotalVendido'].shift(1)
-        df['ValorTotalVendido_7d_avg'] = df.groupby('CodigoProduto')['ValorTotalVendido'].transform(lambda x: x.rolling(7, min_periods=1).mean())
+        df['ValorTotalVendido_7d_avg'] = df.groupby('CodigoProduto')['ValorTotalVendido'].transform(
+            lambda x: x.shift(1).rolling(7, min_periods=1).mean())
 
         # Remover linhas com valores ausentes
         df.dropna(inplace=True)
@@ -74,7 +80,7 @@ def train_and_save_models():
     """
     logger.info("Iniciando o processo de treinamento dos modelos...")
     df = fetch_data_for_training('2019-01-01', '2023-12-31')
-    
+
     if df is not None:
         # Verificar se a pasta 'trained_models' existe, se não, criar
         models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../trained_models'))
@@ -87,19 +93,16 @@ def train_and_save_models():
             logger.error("Erro no pré-processamento dos dados.")
             return
 
-        # Remover 'Promocao' das colunas categóricas
+        # Usar OrdinalEncoder para colunas categóricas com tratamento de valores desconhecidos
         cat_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoSupermercado']
-        le_dict = {}
+        oe_dict = {}
         for col in cat_cols:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col])
-            le_dict[col] = le
+            oe = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
+            df[[col]] = oe.fit_transform(df[[col]])
+            oe_dict[col] = oe
 
-        # Tratar 'Promocao' como numérica
-        df['Promocao'] = df['Promocao'].astype(float)
-
-        # Salvar os LabelEncoders para serem usados nas previsões
-        joblib.dump(le_dict, os.path.join(models_dir, 'label_encoders.pkl'))
+        # Salvar os OrdinalEncoders para serem usados nas previsões
+        joblib.dump(oe_dict, os.path.join(models_dir, 'ordinal_encoders.pkl'))
 
         produtos = df['CodigoProduto'].unique()
         total_produtos = len(produtos)
@@ -144,6 +147,3 @@ def train_and_save_models():
         logger.info(f"Treinamento concluído. Modelos treinados com sucesso: {success_count}. Erros: {error_count}.")
     else:
         logger.error("Não foi possível treinar os modelos devido à ausência de dados.")
-
-if __name__ == "__main__":
-    train_and_save_models()
