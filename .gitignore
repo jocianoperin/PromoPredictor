@@ -176,3 +176,6 @@ promopredictor.rar
 
 #Modelos treinados
 trained_models/
+
+#Outputs
+outputs/

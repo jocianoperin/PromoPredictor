@@ -6,13 +6,14 @@ from src.services.indicadores_vendas_produtos import process_data_and_insert as 
 from src.services.data_formatter import check_data_types, standardize_formatting
 from src.models.predict_sales import make_predictions
 from src.models.train_model import train_and_save_models
+from src.models.compare_predictions import compare_predictions  # Importar a função de comparação
 
 logger = get_logger(__name__)
 
 def main():
     """
-    Função principal para execução do pipeline de criação de tabelas, inserção de dados,
-    validação e limpeza de registros, com logs detalhados.
+    Função principal para execução do pipeline completo, incluindo criação de tabelas, inserção de dados,
+    validação, limpeza, treinamento, previsão e comparação dos resultados, com logs detalhados.
     """
 
     # 1. Dropar tabelas antigas
@@ -73,12 +74,17 @@ def main():
     # 8. Treinamento e Salvamento dos Modelos
     logger.info("8. Treinando e salvando os modelos...")
     train_and_save_models()
-    logger.info("Modelos treinados e salvos com sucesso.")"""
+    logger.info("Modelos treinados e salvos com sucesso.")
 
     # 9. Previsão e Inserção dos Dados Previstos
     logger.info("9. Realizando previsões e inserindo dados previstos...")
     make_predictions()  # Chamando a função de previsão para realizar e inserir previsões
-    logger.info("Previsões realizadas e inseridas com sucesso.")
+    logger.info("Previsões realizadas e inseridas com sucesso.")"""
+
+    # 10. Comparação das Previsões com os Valores Reais
+    logger.info("10. Comparando previsões com valores reais e gerando gráficos...")
+    compare_predictions()  # Chamando a função de comparação e geração de gráficos
+    logger.info("Comparação concluída e gráficos gerados com sucesso.")
 
     logger.info("==== Processo finalizado com sucesso! ====")
 
