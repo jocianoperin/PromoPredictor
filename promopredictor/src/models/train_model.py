@@ -32,7 +32,7 @@ def fetch_data_for_training(start_date, end_date):
         logger.error(f"Erro ao buscar dados: {e}")
         return None
 
-def preprocess_data(df, models_dir):
+def preprocess_data(df):
     """
     Preprocessa os dados para o treinamento do modelo, agrupando por produto e criando features temporais.
     """
@@ -43,6 +43,9 @@ def preprocess_data(df, models_dir):
 
         # Manter coluna original do CódigoProduto
         df['CodigoProdutoOriginal'] = df['CodigoProduto']
+
+        # Converter 'Promocao' para float
+        df['Promocao'] = df['Promocao'].astype(float)
 
         # Features de tempo
         df['dia_da_semana'] = df['DATA'].dt.dayofweek
@@ -55,17 +58,6 @@ def preprocess_data(df, models_dir):
         df['TotalUNVendidas_7d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(lambda x: x.rolling(7, min_periods=1).mean())
         df['ValorTotalVendido_lag1'] = df.groupby('CodigoProduto')['ValorTotalVendido'].shift(1)
         df['ValorTotalVendido_7d_avg'] = df.groupby('CodigoProduto')['ValorTotalVendido'].transform(lambda x: x.rolling(7, min_periods=1).mean())
-
-        # Converter variáveis categóricas usando LabelEncoder
-        cat_cols = ['CodigoProduto', 'CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoSupermercado', 'Promocao']
-        le_dict = {}
-        for col in cat_cols:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col])
-            le_dict[col] = le
-
-        # Salvar os LabelEncoders para serem usados nas previsões
-        joblib.dump(le_dict, os.path.join(models_dir, 'label_encoders.pkl'))
 
         # Remover linhas com valores ausentes
         df.dropna(inplace=True)
@@ -89,10 +81,25 @@ def train_and_save_models():
         if not os.path.exists(models_dir):
             os.makedirs(models_dir)
 
-        df = preprocess_data(df, models_dir)
+        # Pré-processar os dados
+        df = preprocess_data(df)
         if df is None:
             logger.error("Erro no pré-processamento dos dados.")
             return
+
+        # Remover 'Promocao' das colunas categóricas
+        cat_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoSupermercado']
+        le_dict = {}
+        for col in cat_cols:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col])
+            le_dict[col] = le
+
+        # Tratar 'Promocao' como numérica
+        df['Promocao'] = df['Promocao'].astype(float)
+
+        # Salvar os LabelEncoders para serem usados nas previsões
+        joblib.dump(le_dict, os.path.join(models_dir, 'label_encoders.pkl'))
 
         produtos = df['CodigoProduto'].unique()
         total_produtos = len(produtos)
@@ -103,6 +110,11 @@ def train_and_save_models():
         for produto in produtos:
             df_produto = df[df['CodigoProduto'] == produto]
             codigo_produto_original = df_produto['CodigoProdutoOriginal'].iloc[0]  # Recupera o código original
+
+            # Verificar quantidade de dados por produto
+            if len(df_produto) < 10:
+                logger.warning(f"Produto {codigo_produto_original} possui poucos registros ({len(df_produto)}). Pulando...")
+                continue
 
             X = df_produto.drop(columns=['DATA', 'TotalUNVendidas', 'ValorTotalVendido', 'CodigoProdutoOriginal'])
             y_total_un = df_produto['TotalUNVendidas']
@@ -119,6 +131,10 @@ def train_and_save_models():
                 joblib.dump(model_un, os.path.join(models_dir, f'model_un_{codigo_produto_original}.pkl'))
                 joblib.dump(model_valor, os.path.join(models_dir, f'model_valor_{codigo_produto_original}.pkl'))
 
+                # Salvar as colunas treinadas
+                trained_columns = X.columns.tolist()
+                joblib.dump(trained_columns, os.path.join(models_dir, f'trained_columns_{codigo_produto_original}.pkl'))
+
                 success_count += 1
             except Exception as e:
                 logger.error(f"Erro ao treinar modelo para o produto {codigo_produto_original}: {e}")
@@ -128,3 +144,6 @@ def train_and_save_models():
         logger.info(f"Treinamento concluído. Modelos treinados com sucesso: {success_count}. Erros: {error_count}.")
     else:
         logger.error("Não foi possível treinar os modelos devido à ausência de dados.")
+
+if __name__ == "__main__":
+    train_and_save_models()
