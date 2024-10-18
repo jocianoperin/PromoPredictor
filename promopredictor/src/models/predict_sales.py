@@ -9,18 +9,22 @@ logger = get_logger(__name__)
 
 def fetch_data_for_prediction():
     """
-    Busca os produtos e atributos relevantes para fazer previsões futuras.
+    Busca os produtos e atributos relevantes para fazer previsões futuras, incluindo
+    colunas necessárias para prever vendas com base nos dados históricos.
     """
     query = """
-        SELECT DISTINCT CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoSupermercado, Promocao
+        SELECT DATA, CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoSupermercado,
+               TotalUNVendidas, ValorTotalVendido, Promocao
         FROM indicadores_vendas_produtos_resumo
         WHERE DATA <= '2023-12-31';
     """
     try:
         result = db_manager.execute_query(query)
-        if 'data' in result and 'columns' in result:
-            logger.info(f"Quantidade de registros retornados: {len(result['data'])}")
+        
+        # Verifica se o resultado contém dados e colunas
+        if result and 'data' in result and 'columns' in result:
             df = pd.DataFrame(result['data'], columns=result['columns'])
+            logger.info(f"Quantidade de registros retornados: {len(df)}")
             return df
         else:
             logger.warning("Nenhum dado foi retornado pela query.")
@@ -29,14 +33,19 @@ def fetch_data_for_prediction():
         logger.error(f"Erro ao buscar dados para previsão: {e}")
         return None
 
+
 def preprocess_data_for_prediction(df, le_dict, trained_columns):
     """
     Preprocessa os dados de previsão de acordo com os dados de treinamento.
     """
     try:
+        # Manter o CódigoProdutoOriginal
+        df['CodigoProdutoOriginal'] = df['CodigoProduto']
+
         # Aplicar o LabelEncoder salvo para cada coluna categórica
         for col, le in le_dict.items():
-            df[col] = le.transform(df[col].astype(str))
+            # Transformar valores conhecidos e marcar novos valores como -1
+            df[col] = df[col].apply(lambda x: le.transform([x])[0] if x in le.classes_ else -1)
 
         # Criar variáveis dummy para 'CodigoProduto' e outras variáveis categóricas
         df = pd.get_dummies(df, columns=['CodigoProduto', 'CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoSupermercado'])
@@ -71,6 +80,12 @@ def make_predictions():
             logger.error(f"Erro ao carregar os encoders salvos: {e}")
             return
 
+        # Limpar a tabela de previsões antes de inserir novas
+        clear_predictions_table()
+
+        # Manter o código original do produto antes da mesclagem
+        df_pred['CodigoProdutoOriginal'] = df_pred['CodigoProduto']
+
         # Gerar as datas de previsão
         dates = pd.date_range(start='2024-01-01', end='2024-03-31', freq='D')
         df_dates = pd.DataFrame({'DATA': dates})
@@ -82,20 +97,32 @@ def make_predictions():
 
         # Iterar sobre cada produto para carregar o modelo correspondente e fazer a previsão
         produtos = df_pred['CodigoProduto'].unique()
-        for produto in produtos:
-            logger.info(f"Realizando previsões para o produto {produto}...")
+        total_produtos = len(produtos)
+        logger.info(f"Total de produtos a serem processados: {total_produtos}")
 
+        success_count = 0
+        error_count = 0
+        for produto in produtos:
             # Filtrar os dados para o produto atual
             df_produto = df_pred_full[df_pred_full['CodigoProduto'] == produto].copy()
 
+            # Manter o código original do produto
+            if 'CodigoProdutoOriginal' in df_produto.columns:
+                codigo_produto_original = df_produto['CodigoProdutoOriginal'].iloc[0]
+            else:
+                logger.error(f"Coluna 'CodigoProdutoOriginal' não encontrada para o produto {produto}.")
+                error_count += 1
+                continue
+
             # Carregar os modelos específicos do produto
             try:
-                model_un_path = os.path.join(models_dir, f'model_un_{produto}.pkl')
-                model_valor_path = os.path.join(models_dir, f'model_valor_{produto}.pkl')
+                model_un_path = os.path.join(models_dir, f'model_un_{codigo_produto_original}.pkl')
+                model_valor_path = os.path.join(models_dir, f'model_valor_{codigo_produto_original}.pkl')
                 model_un = joblib.load(model_un_path)
                 model_valor = joblib.load(model_valor_path)
             except Exception as e:
-                logger.error(f"Erro ao carregar os modelos treinados para o produto {produto}: {e}")
+                logger.error(f"Erro ao carregar os modelos treinados para o produto {codigo_produto_original}: {e}")
+                error_count += 1
                 continue
 
             # Obter os nomes das features treinadas
@@ -115,11 +142,15 @@ def make_predictions():
 
                 # Preparar os dados para inserção no banco de dados
                 df_produto['DATA'] = df_produto['DATA'].dt.strftime('%Y-%m-%d')
+                df_produto['CodigoProduto'] = codigo_produto_original  # Usar o código original para inserção
                 df_to_insert = df_produto[['DATA', 'CodigoProduto', 'TotalUNVendidas', 'ValorTotalVendido', 'Promocao']]
 
                 insert_predictions(df_to_insert)
-                logger.info(f"Previsões para o produto {produto} realizadas e inseridas com sucesso.")
+                success_count += 1
             else:
-                logger.error(f"Erro no pré-processamento dos dados de previsão para o produto {produto}.")
+                error_count += 1
+
+        # Log do resumo final
+        logger.info(f"Previsão concluída. Produtos processados com sucesso: {success_count}. Erros: {error_count}.")
     else:
         logger.error("Não há dados disponíveis para fazer a previsão.")

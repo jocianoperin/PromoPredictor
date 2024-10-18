@@ -41,6 +41,9 @@ def preprocess_data(df, models_dir):
         df['DATA'] = pd.to_datetime(df['DATA'])
         df = df.sort_values(by=['CodigoProduto', 'DATA'])
 
+        # Manter coluna original do CódigoProduto
+        df['CodigoProdutoOriginal'] = df['CodigoProduto']
+
         # Features de tempo
         df['dia_da_semana'] = df['DATA'].dt.dayofweek
         df['mes'] = df['DATA'].dt.month
@@ -99,7 +102,9 @@ def train_and_save_models():
         error_count = 0
         for produto in produtos:
             df_produto = df[df['CodigoProduto'] == produto]
-            X = df_produto.drop(columns=['DATA', 'TotalUNVendidas', 'ValorTotalVendido'])
+            codigo_produto_original = df_produto['CodigoProdutoOriginal'].iloc[0]  # Recupera o código original
+
+            X = df_produto.drop(columns=['DATA', 'TotalUNVendidas', 'ValorTotalVendido', 'CodigoProdutoOriginal'])
             y_total_un = df_produto['TotalUNVendidas']
             y_valor_total = df_produto['ValorTotalVendido']
 
@@ -110,13 +115,13 @@ def train_and_save_models():
                 model_un.fit(X, y_total_un)
                 model_valor.fit(X, y_valor_total)
 
-                # Salvar os modelos individualmente na pasta 'trained_models' usando o codigo do produto
-                joblib.dump(model_un, os.path.join(models_dir, f'model_un_{produto}.pkl'))
-                joblib.dump(model_valor, os.path.join(models_dir, f'model_valor_{produto}.pkl'))
+                # Salvar os modelos individualmente na pasta 'trained_models' usando o código original do produto
+                joblib.dump(model_un, os.path.join(models_dir, f'model_un_{codigo_produto_original}.pkl'))
+                joblib.dump(model_valor, os.path.join(models_dir, f'model_valor_{codigo_produto_original}.pkl'))
 
                 success_count += 1
             except Exception as e:
-                logger.error(f"Erro ao treinar modelo para o produto {produto}: {e}")
+                logger.error(f"Erro ao treinar modelo para o produto {codigo_produto_original}: {e}")
                 error_count += 1
 
         # Log do resumo final
