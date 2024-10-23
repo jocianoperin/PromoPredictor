@@ -7,6 +7,7 @@ import holidays
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 from src.utils.utils import clear_predictions_table, insert_predictions
+from src.services.data_transformer import add_temporal_features, add_lag_features, add_rolling_average
 
 logger = get_logger(__name__)
 
@@ -39,23 +40,13 @@ def preprocess_historical_data(df_historical, oe_dict):
     Pré-processa os dados históricos para treinamento e previsão.
     """
     try:
-        df_historical['DATA'] = pd.to_datetime(df_historical['DATA'])
+        df_historical = add_temporal_features(df_historical)
 
         # Tratar 'Promocao' como numérica
         if 'Promocao' in df_historical.columns:
             df_historical['Promocao'] = df_historical['Promocao'].astype(float)
         else:
             df_historical['Promocao'] = 0.0  # Ou outro valor padrão adequado
-
-        # Features de tempo
-        df_historical['dia_da_semana'] = df_historical['DATA'].dt.dayofweek
-        df_historical['mes'] = df_historical['DATA'].dt.month
-        df_historical['dia'] = df_historical['DATA'].dt.day
-        df_historical['ano'] = df_historical['DATA'].dt.year
-
-        # Adicionar feature de feriado
-        br_holidays = holidays.Brazil()
-        df_historical['feriado'] = df_historical['DATA'].apply(lambda x: 1 if x in br_holidays else 0)
 
         # Ordenar o DataFrame
         df_historical.sort_values(by=['CodigoProduto', 'DATA'], inplace=True)
@@ -69,13 +60,11 @@ def preprocess_historical_data(df_historical, oe_dict):
             else:
                 df_historical[col] = -1  # Valor padrão para categorias desconhecidas
 
-        # Lags e médias móveis para cada produto
-        df_historical['TotalUNVendidas_lag1'] = df_historical.groupby('CodigoProduto')['TotalUNVendidas'].shift(1)
-        df_historical['TotalUNVendidas_7d_avg'] = df_historical.groupby('CodigoProduto')['TotalUNVendidas'].transform(
-            lambda x: x.shift(1).rolling(7, min_periods=1).mean())
-        df_historical['ValorTotalVendido_lag1'] = df_historical.groupby('CodigoProduto')['ValorTotalVendido'].shift(1)
-        df_historical['ValorTotalVendido_7d_avg'] = df_historical.groupby('CodigoProduto')['ValorTotalVendido'].transform(
-            lambda x: x.shift(1).rolling(7, min_periods=1).mean())
+        # Adicionar lags e médias móveis
+        df_historical = add_lag_features(df_historical, 'CodigoProduto', 'TotalUNVendidas', [1, 7])
+        df_historical = add_lag_features(df_historical, 'CodigoProduto', 'ValorTotalVendido', [1])
+        df_historical = add_rolling_average(df_historical, 'CodigoProduto', 'TotalUNVendidas', [7, 30, 365])
+        df_historical = add_rolling_average(df_historical, 'CodigoProduto', 'ValorTotalVendido', [7, 30])
 
         # Remover linhas com valores ausentes
         df_historical.dropna(inplace=True)
@@ -90,21 +79,13 @@ def prepare_future_data(df_future, last_known_values, oe_dict):
     Prepara os dados futuros para previsão, preenchendo as features necessárias.
     """
     try:
+        df_future = add_temporal_features(df_future)
+
         # Tratar 'Promocao' como numérica
         if 'Promocao' in df_future.columns:
             df_future['Promocao'] = df_future['Promocao'].astype(float)
         else:
             df_future['Promocao'] = 0.0  # Ou outro valor padrão adequado
-
-        # Features de tempo
-        df_future['dia_da_semana'] = df_future['DATA'].dt.dayofweek.astype(int)
-        df_future['mes'] = df_future['DATA'].dt.month.astype(int)
-        df_future['dia'] = df_future['DATA'].dt.day.astype(int)
-        df_future['ano'] = df_future['DATA'].dt.year.astype(int)
-
-        # Adicionar feature de feriado
-        br_holidays = holidays.Brazil()
-        df_future['feriado'] = df_future['DATA'].apply(lambda x: 1 if x in br_holidays else 0)
 
         # Usar OrdinalEncoder para colunas categóricas com tratamento de valores desconhecidos
         cat_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoSupermercado']
@@ -251,9 +232,6 @@ def make_predictions():
                 # Definir vendas como zero nos feriados
                 df_future_processed.loc[df_future_processed['feriado'] == 1, 'TotalUNVendidas'] = 0
                 df_future_processed.loc[df_future_processed['feriado'] == 1, 'ValorTotalVendido'] = 0.00  # Manter duas casas decimais
-
-                # Garantir que 'ValorTotalVendido' tenha duas casas decimais após todos os ajustes
-                df_future_processed['ValorTotalVendido'] = df_future_processed['ValorTotalVendido'].round(2)
 
                 # Preparar os dados para inserção no banco de dados
                 df_to_insert = df_future_processed[['DATA', 'CodigoProduto', 'TotalUNVendidas', 'ValorTotalVendido', 'Promocao']].copy()

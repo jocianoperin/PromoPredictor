@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import xgboost as xgb
 from sklearn.preprocessing import OrdinalEncoder
+from sklearn.model_selection import GridSearchCV
 from src.services.database import db_manager
 from src.utils.logging_config import get_logger
 import joblib
@@ -32,12 +33,12 @@ def fetch_data_for_training(start_date, end_date):
         logger.error(f"Erro ao buscar dados: {e}")
         return None
 
-def preprocess_data(df):
+def preprocess_data_advanced(df):
     """
-    Preprocessa os dados para o treinamento do modelo, agrupando por produto e criando features temporais.
+    Pré-processa os dados para o treinamento do modelo, criando features temporais e estatísticas avançadas.
     """
     try:
-        logger.info("Iniciando o pré-processamento dos dados...")
+        logger.info("Iniciando o pré-processamento avançado dos dados...")
         df['DATA'] = pd.to_datetime(df['DATA'])
         df = df.sort_values(by=['CodigoProduto', 'DATA'])
 
@@ -59,20 +60,45 @@ def preprocess_data(df):
 
         # Lags e médias móveis para cada produto
         df['TotalUNVendidas_lag1'] = df.groupby('CodigoProduto')['TotalUNVendidas'].shift(1)
-        df['TotalUNVendidas_7d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(
-            lambda x: x.shift(1).rolling(7, min_periods=1).mean())
+        df['TotalUNVendidas_lag7'] = df.groupby('CodigoProduto')['TotalUNVendidas'].shift(7)
+        df['TotalUNVendidas_30d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(
+            lambda x: x.shift(1).rolling(30, min_periods=1).mean())
         df['ValorTotalVendido_lag1'] = df.groupby('CodigoProduto')['ValorTotalVendido'].shift(1)
-        df['ValorTotalVendido_7d_avg'] = df.groupby('CodigoProduto')['ValorTotalVendido'].transform(
-            lambda x: x.shift(1).rolling(7, min_periods=1).mean())
+        df['ValorTotalVendido_30d_avg'] = df.groupby('CodigoProduto')['ValorTotalVendido'].transform(
+            lambda x: x.shift(1).rolling(30, min_periods=1).mean())
+
+        # Adicionar médias móveis sazonais para capturar padrões mensais
+        df['TotalUNVendidas_365d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(
+            lambda x: x.shift(1).rolling(365, min_periods=1).mean())
 
         # Remover linhas com valores ausentes
         df.dropna(inplace=True)
 
-        logger.info("Pré-processamento concluído.")
+        logger.info("Pré-processamento avançado concluído.")
         return df
     except Exception as e:
         logger.error(f"Erro durante o pré-processamento: {e}")
         return None
+
+def tune_hyperparameters(X_train, y_train):
+    """
+    Tuning dos hiperparâmetros usando GridSearchCV.
+    """
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'learning_rate': [0.01, 0.05, 0.1],
+        'max_depth': [3, 5, 7],
+        'subsample': [0.7, 0.8, 1.0],
+        'colsample_bytree': [0.7, 0.8, 1.0]
+    }
+
+    model = xgb.XGBRegressor(tree_method='hist', enable_categorical=False)
+
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=3, scoring='neg_mean_absolute_error', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+
+    logger.info(f"Melhores parâmetros encontrados: {grid_search.best_params_}")
+    return grid_search.best_estimator_
 
 def train_and_save_models():
     """
@@ -88,7 +114,7 @@ def train_and_save_models():
             os.makedirs(models_dir)
 
         # Pré-processar os dados
-        df = preprocess_data(df)
+        df = preprocess_data_advanced(df)
         if df is None:
             logger.error("Erro no pré-processamento dos dados.")
             return
@@ -123,8 +149,9 @@ def train_and_save_models():
             y_total_un = df_produto['TotalUNVendidas']
             y_valor_total = df_produto['ValorTotalVendido']
 
-            model_un = xgb.XGBRegressor(tree_method='hist', enable_categorical=False)
-            model_valor = xgb.XGBRegressor(tree_method='hist', enable_categorical=False)
+            # Ajustar os hiperparâmetros
+            model_un = tune_hyperparameters(X, y_total_un)
+            model_valor = tune_hyperparameters(X, y_valor_total)
 
             try:
                 model_un.fit(X, y_total_un)
