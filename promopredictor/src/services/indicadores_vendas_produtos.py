@@ -73,7 +73,7 @@ def process_data_and_insert():
                vp.Quantidade, vp.ValorTotal, vp.Promocao
         FROM vendas_auxiliar v
         INNER JOIN vendasprodutos_auxiliar vp ON v.Codigo = vp.CodigoVenda
-        WHERE v.DATA >= '2019-01-01';
+        WHERE v.DATA >= '2019-01-01'
     """
 
     logger.info("Iniciando processamento dos dados de vendas detalhadas...")
