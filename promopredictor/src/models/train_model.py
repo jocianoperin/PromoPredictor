@@ -1,24 +1,28 @@
+# src/models/train_model.py
+
 import pandas as pd
 import os
-import xgboost as xgb
-from sklearn.preprocessing import OrdinalEncoder
-from sklearn.model_selection import GridSearchCV
-from src.services.database import db_manager
-from src.utils.logging_config import get_logger
+import numpy as np
 import joblib
 import holidays
+from src.services.database import db_manager
+from src.utils.logging_config import get_logger
+from src.utils.data_preparation import create_sequences, scale_data
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM
+from tensorflow.keras.callbacks import EarlyStopping
 
 logger = get_logger(__name__)
 
-def fetch_data_for_training(start_date, end_date):
+def fetch_data_for_training(start_date, end_date, produto_especifico):
     """
-    Busca dados da tabela indicadores_vendas_produtos_resumo para o período especificado.
+    Busca dados da tabela indicadores_vendas_produtos_resumo para o período especificado e produto específico.
     """
     query = f"""
-        SELECT DATA, CodigoProduto, CodigoSecao, CodigoGrupo, CodigoSubGrupo, CodigoSupermercado,
-               TotalUNVendidas, ValorTotalVendido, Promocao
+        SELECT DATA, TotalUNVendidas, ValorTotalVendido, Promocao
         FROM indicadores_vendas_produtos_resumo
-        WHERE DATA BETWEEN '{start_date}' AND '{end_date}';
+        WHERE DATA BETWEEN '{start_date}' AND '{end_date}'
+          AND CodigoProduto = '{produto_especifico}';
     """
     try:
         result = db_manager.execute_query(query)
@@ -33,17 +37,14 @@ def fetch_data_for_training(start_date, end_date):
         logger.error(f"Erro ao buscar dados: {e}")
         return None
 
-def preprocess_data_advanced(df):
+def preprocess_data(df):
     """
-    Pré-processa os dados para o treinamento do modelo, criando features temporais e estatísticas avançadas.
+    Pré-processa os dados para o treinamento do modelo LSTM.
     """
     try:
-        logger.info("Iniciando o pré-processamento avançado dos dados...")
+        logger.info("Iniciando o pré-processamento dos dados...")
         df['DATA'] = pd.to_datetime(df['DATA'])
-        df = df.sort_values(by=['CodigoProduto', 'DATA'])
-
-        # Manter coluna original do CódigoProduto
-        df['CodigoProdutoOriginal'] = df['CodigoProduto']
+        df = df.sort_values(by=['DATA'])
 
         # Converter 'Promocao' para float
         df['Promocao'] = df['Promocao'].astype(float)
@@ -52,125 +53,93 @@ def preprocess_data_advanced(df):
         df['dia_da_semana'] = df['DATA'].dt.dayofweek
         df['mes'] = df['DATA'].dt.month
         df['dia'] = df['DATA'].dt.day
-        df['ano'] = df['DATA'].dt.year
 
         # Adicionar feature de feriado
         br_holidays = holidays.Brazil()
         df['feriado'] = df['DATA'].apply(lambda x: 1 if x in br_holidays else 0)
 
-        # Lags e médias móveis para cada produto
-        df['TotalUNVendidas_lag1'] = df.groupby('CodigoProduto')['TotalUNVendidas'].shift(1)
-        df['TotalUNVendidas_lag7'] = df.groupby('CodigoProduto')['TotalUNVendidas'].shift(7)
-        df['TotalUNVendidas_30d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(
-            lambda x: x.shift(1).rolling(30, min_periods=1).mean())
-        df['ValorTotalVendido_lag1'] = df.groupby('CodigoProduto')['ValorTotalVendido'].shift(1)
-        df['ValorTotalVendido_30d_avg'] = df.groupby('CodigoProduto')['ValorTotalVendido'].transform(
-            lambda x: x.shift(1).rolling(30, min_periods=1).mean())
+        # Remover colunas desnecessárias
+        df.drop(columns=['DATA'], inplace=True)
 
-        # Adicionar médias móveis sazonais para capturar padrões mensais
-        df['TotalUNVendidas_365d_avg'] = df.groupby('CodigoProduto')['TotalUNVendidas'].transform(
-            lambda x: x.shift(1).rolling(365, min_periods=1).mean())
+        # Preencher valores ausentes com zero
+        df.fillna(0, inplace=True)
 
-        # Remover linhas com valores ausentes
-        df.dropna(inplace=True)
+        # Selecionar as colunas para o modelo
+        cols = ['TotalUNVendidas', 'ValorTotalVendido', 'Promocao', 'dia_da_semana', 'mes', 'dia', 'feriado']
 
-        logger.info("Pré-processamento avançado concluído.")
-        return df
+        df = df[cols]
+
+        # Normalizar os dados
+        data_scaled, scaler = scale_data(df)
+
+        logger.info("Pré-processamento concluído.")
+        return data_scaled, scaler
     except Exception as e:
         logger.error(f"Erro durante o pré-processamento: {e}")
-        return None
+        return None, None
 
-def tune_hyperparameters(X_train, y_train):
+def train_and_evaluate_model(produto_especifico):
     """
-    Tuning dos hiperparâmetros usando GridSearchCV.
+    Realiza o treinamento e avaliação do modelo LSTM para um produto específico.
     """
-    param_grid = {
-        'n_estimators': [100, 200, 300],
-        'learning_rate': [0.01, 0.05, 0.1],
-        'max_depth': [3, 5, 7],
-        'subsample': [0.7, 0.8, 1.0],
-        'colsample_bytree': [0.7, 0.8, 1.0]
-    }
+    logger.info("Iniciando o processo de treinamento do modelo LSTM...")
 
-    model = xgb.XGBRegressor(tree_method='hist', enable_categorical=False)
+    df = fetch_data_for_training('2019-01-01', '2023-12-31', produto_especifico)
 
-    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=3, scoring='neg_mean_absolute_error', n_jobs=-1)
-    grid_search.fit(X_train, y_train)
+    if df is not None and not df.empty:
+        # Pré-processar os dados
+        data_scaled, scaler = preprocess_data(df)
+        if data_scaled is None:
+            logger.error("Erro no pré-processamento dos dados.")
+            return
 
-    logger.info(f"Melhores parâmetros encontrados: {grid_search.best_params_}")
-    return grid_search.best_estimator_
+        # Criar sequências
+        seq_length = 30  # Usar 30 dias de histórico para prever o próximo dia
+        target_cols = ['TotalUNVendidas', 'ValorTotalVendido']
+        X, y = create_sequences(data_scaled, seq_length, target_cols)
 
-def train_and_save_models():
-    """
-    Realiza o treinamento do modelo de previsão para cada produto e salva os modelos individualmente.
-    """
-    logger.info("Iniciando o processo de treinamento dos modelos...")
-    df = fetch_data_for_training('2019-01-01', '2023-12-31')
+        # Dividir em treino e validação
+        split = int(0.8 * len(X))
+        X_train, X_val = X[:split], X[split:]
+        y_train_un, y_val_un = y['TotalUNVendidas'][:split], y['TotalUNVendidas'][split:]
+        y_train_valor, y_val_valor = y['ValorTotalVendido'][:split], y['ValorTotalVendido'][split:]
 
-    if df is not None:
-        # Verificar se a pasta 'trained_models' existe, se não, criar
+        # Construir o modelo LSTM para TotalUNVendidas
+        model_un = Sequential()
+        model_un.add(LSTM(50, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
+        model_un.add(Dense(1))
+        model_un.compile(optimizer='adam', loss='mean_absolute_error')
+
+        # Treinar o modelo para TotalUNVendidas
+        early_stop = EarlyStopping(monitor='val_loss', patience=5)
+        model_un.fit(X_train, y_train_un, epochs=50, validation_data=(X_val, y_val_un), callbacks=[early_stop])
+
+        # Construir o modelo LSTM para ValorTotalVendido
+        model_valor = Sequential()
+        model_valor.add(LSTM(50, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
+        model_valor.add(Dense(1))
+        model_valor.compile(optimizer='adam', loss='mean_absolute_error')
+
+        # Treinar o modelo para ValorTotalVendido
+        model_valor.fit(X_train, y_train_valor, epochs=50, validation_data=(X_val, y_val_valor), callbacks=[early_stop])
+
+        # Salvar os modelos
         models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../trained_models'))
         if not os.path.exists(models_dir):
             os.makedirs(models_dir)
 
-        # Pré-processar os dados
-        df = preprocess_data_advanced(df)
-        if df is None:
-            logger.error("Erro no pré-processamento dos dados.")
-            return
+        model_un.save(os.path.join(models_dir, f'model_un_{produto_especifico}.h5'))
+        model_valor.save(os.path.join(models_dir, f'model_valor_{produto_especifico}.h5'))
+        logger.info("Modelos salvos com sucesso.")
 
-        # Usar OrdinalEncoder para colunas categóricas com tratamento de valores desconhecidos
-        cat_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoSupermercado']
-        oe_dict = {}
-        for col in cat_cols:
-            oe = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
-            df[[col]] = oe.fit_transform(df[[col]])
-            oe_dict[col] = oe
+        # Salvar o scaler
+        scaler_path = os.path.join(models_dir, f'scaler_{produto_especifico}.pkl')
+        joblib.dump(scaler, scaler_path)
+        logger.info(f"Scaler salvo em: {scaler_path}")
 
-        # Salvar os OrdinalEncoders para serem usados nas previsões
-        joblib.dump(oe_dict, os.path.join(models_dir, 'ordinal_encoders.pkl'))
-
-        produtos = df['CodigoProduto'].unique()
-        total_produtos = len(produtos)
-        logger.info(f"Total de produtos a serem treinados: {total_produtos}")
-
-        success_count = 0
-        error_count = 0
-        for produto in produtos:
-            df_produto = df[df['CodigoProduto'] == produto]
-            codigo_produto_original = df_produto['CodigoProdutoOriginal'].iloc[0]  # Recupera o código original
-
-            # Verificar quantidade de dados por produto
-            if len(df_produto) < 10:
-                logger.warning(f"Produto {codigo_produto_original} possui poucos registros ({len(df_produto)}). Pulando...")
-                continue
-
-            X = df_produto.drop(columns=['DATA', 'TotalUNVendidas', 'ValorTotalVendido', 'CodigoProdutoOriginal'])
-            y_total_un = df_produto['TotalUNVendidas']
-            y_valor_total = df_produto['ValorTotalVendido']
-
-            # Ajustar os hiperparâmetros
-            model_un = tune_hyperparameters(X, y_total_un)
-            model_valor = tune_hyperparameters(X, y_valor_total)
-
-            try:
-                model_un.fit(X, y_total_un)
-                model_valor.fit(X, y_valor_total)
-
-                # Salvar os modelos individualmente na pasta 'trained_models' usando o código original do produto
-                joblib.dump(model_un, os.path.join(models_dir, f'model_un_{codigo_produto_original}.pkl'))
-                joblib.dump(model_valor, os.path.join(models_dir, f'model_valor_{codigo_produto_original}.pkl'))
-
-                # Salvar as colunas treinadas
-                trained_columns = X.columns.tolist()
-                joblib.dump(trained_columns, os.path.join(models_dir, f'trained_columns_{codigo_produto_original}.pkl'))
-
-                success_count += 1
-            except Exception as e:
-                logger.error(f"Erro ao treinar modelo para o produto {codigo_produto_original}: {e}")
-                error_count += 1
-
-        # Log do resumo final
-        logger.info(f"Treinamento concluído. Modelos treinados com sucesso: {success_count}. Erros: {error_count}.")
     else:
-        logger.error("Não foi possível treinar os modelos devido à ausência de dados.")
+        logger.error("Não foi possível treinar o modelo devido à ausência de dados.")
+
+if __name__ == "__main__":
+    produto_especifico = 'codigo_do_produto_desejado'  # Substitua pelo código do produto desejado
+    train_and_evaluate_model(produto_especifico)

@@ -19,7 +19,7 @@ def fetch_data_in_batches(query, batch_size=100000):
                 if len(result['data']) == 0:
                     break
                 df = pd.DataFrame(result['data'], columns=result['columns'])
-                logger.info(f"Batch com {len(df)} registros retornado.")
+                logger.debug(f"Batch com {len(df)} registros retornado.")
                 yield df  # Retorna um DataFrame como batch
             else:
                 logger.warning("Nenhum dado foi retornado pela query.")
@@ -58,7 +58,7 @@ def insert_data_in_batches(df, table_name, batch_size=1000):
             insert_query = insert_query.replace("'NULL'", "NULL")
             db_manager.execute_query(insert_query)
         
-        logger.info(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
+        logger.debug(f"Lote de {len(df)} registros inserido com sucesso na tabela {table_name}.")
     except Exception as e:
         logger.error(f"Erro ao inserir lote de dados: {e}")
 

@@ -4,10 +4,9 @@ from src.services.data_cleaner import remove_invalid_records
 from src.services.indicadores_resumo_batch import process_data_and_insert as process_resumo
 from src.services.indicadores_vendas_produtos import process_data_and_insert as process_indicadores_vendas
 from src.services.data_formatter import check_data_types, standardize_formatting
-from src.models.predict_sales import make_predictions
-from src.models.train_model import train_and_save_models
-from src.visualizations.compare_forecasts import plot_comparison
-from src.visualizations.general_forecast_analysis import generate_general_report
+from src.models.train_model import train_and_evaluate_model
+from src.models.predict_sales import predict_future_sales
+from src.visualizations.general_forecast_analysis import plot_forecast_analysis
 
 logger = get_logger(__name__)
 
@@ -19,7 +18,11 @@ def main():
     logger.info("==== Início do processo ====")
 
     try:
-        """# 1. Dropar tabelas antigas
+        # Definir o código do produto específico
+        produto_especifico = 26173  # Substitua pelo código do produto desejado
+
+        # 1. Dropar tabelas antigas (comentado, caso não seja necessário)
+        """
         logger.info("1. Excluindo tabelas antigas...")
         drop_tables()
         logger.info("Tabelas antigas excluídas com sucesso.")
@@ -56,7 +59,8 @@ def main():
         check_data_types('vendasprodutos_auxiliar', {'Quantidade': 'DOUBLE', 'ValorTotal': 'DOUBLE', 'Promocao': 'DECIMAL(3,0)'})
         check_data_types('vendas_auxiliar', {'DATA': 'DATE'})
         check_data_types('indicadores_vendas_produtos', {'Quantidade': 'DOUBLE', 'ValorTotal': 'DOUBLE', 'Promocao': 'DECIMAL(3,0)'})
-        logger.info("Tipos de dados verificados e ajustados.")"""
+        logger.info("Tipos de dados verificados e ajustados.")
+        
 
         # 5. Inserir os dados na tabela indicadores_vendas_produtos
         logger.info("5. Inserindo dados na tabela indicadores_vendas_produtos...")
@@ -72,40 +76,21 @@ def main():
         logger.info("7. Processando dados de indicadores de vendas para resumo...")
         process_resumo()
         logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")
-
-        """# 8. Treinamento e Salvamento dos Modelos
-        logger.info("8. Treinando e salvando os modelos...")
-        train_and_save_models()
-        logger.info("Modelos treinados e salvos com sucesso.")
+        """
+        # 8. Treinamento e Salvamento do Modelo
+        logger.info("1. Treinando e salvando o modelo para o produto específico...")
+        train_and_evaluate_model(produto_especifico)
+        logger.info("Modelo treinado e salvo com sucesso.")
 
         # 9. Previsão e Inserção dos Dados Previstos
-        logger.info("9. Realizando previsões e inserindo dados previstos...")
-        make_predictions()
+        logger.info("2. Realizando previsões e inserindo dados previstos...")
+        predict_future_sales(produto_especifico)
         logger.info("Previsões realizadas e inseridas com sucesso.")
 
         # 10. Comparação das Previsões com os Valores Reais
-        logger.info("10. Comparando previsões com valores reais e gerando gráficos...")
-        plot_comparison(10001)  # Chamando a função de comparação e geração de gráficos
-        logger.info("Comparação concluída e gráficos gerados com sucesso.")
-
-        # 10. Comparação das Previsões com os Valores Reais - Individual e Geral
-        logger.info("10. Comparando previsões com valores reais...")
-
-        # Comparação individual (exemplo com um código de produto específico)
-        plot_comparison(10001)  # Substitua por outro código de produto, se necessário
-
-        # Análise geral de todas as previsões
-        general_report_df = generate_general_report()
-
-        if general_report_df is not None and not general_report_df.empty:
-            print(general_report_df.head())
-            general_report_path = '/home/jociano/Projects/PromoPredictor/general_forecast_report.csv'
-            general_report_df.to_csv(general_report_path, index=False)
-            logger.info(f"Relatório geral salvo como {general_report_path} e resumo exibido no console.")
-        else:
-            logger.warning("O DataFrame está vazio, não há dados para salvar no CSV.")
-
-        logger.info("Comparações concluídas e gráficos gerados com sucesso.")"""
+        logger.info("3. Comparando previsões com valores reais e gerando gráfico...")
+        plot_forecast_analysis(produto_especifico)
+        logger.info("Comparação concluída e gráfico gerado com sucesso.")
 
         logger.info("==== Processo finalizado com sucesso! ====")
     
