@@ -22,7 +22,7 @@ def main():
         produto_especifico = 26173  # Substitua pelo código do produto desejado
 
         # 1. Dropar tabelas antigas (comentado, caso não seja necessário)
-        """
+        
         logger.info("1. Excluindo tabelas antigas...")
         drop_tables()
         logger.info("Tabelas antigas excluídas com sucesso.")
@@ -76,7 +76,7 @@ def main():
         logger.info("7. Processando dados de indicadores de vendas para resumo...")
         process_resumo()
         logger.info("Dados de indicadores de vendas processados e inseridos com sucesso.")
-        """
+        
         # 8. Treinamento e Salvamento do Modelo
         logger.info("1. Treinando e salvando o modelo para o produto específico...")
         train_and_evaluate_model(produto_especifico)
