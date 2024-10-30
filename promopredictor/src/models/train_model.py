@@ -55,7 +55,7 @@ def train_and_evaluate_models(produto_especifico):
     model_un.add(Input(shape=(n_steps, X_train_seq.shape[2])))
     model_un.add(LSTM(100, activation='tanh'))
     model_un.add(Dense(1))
-    optimizer_un = RMSprop(learning_rate=0.0001)
+    optimizer_un = RMSprop(learning_rate=0.01)
     model_un.compile(optimizer=optimizer_un, loss='mse')
 
     # Treinar o modelo
@@ -67,7 +67,7 @@ def train_and_evaluate_models(produto_especifico):
     model_valor.add(Input(shape=(n_steps, X_train_seq.shape[2])))
     model_valor.add(LSTM(100, activation='tanh'))
     model_valor.add(Dense(1))
-    optimizer_valor = RMSprop(learning_rate=0.0001)
+    optimizer_valor = RMSprop(learning_rate=0.01)
     model_valor.compile(optimizer=optimizer_valor, loss='mse')
 
     # Treinar o modelo
@@ -142,7 +142,7 @@ def prepare_data(df, scaler=None):
 def load_data(produto_especifico):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    data_path = os.path.join(base_dir, 'data', 'dados_processados.csv')
+    data_path = os.path.join(base_dir, 'promopredictor', 'data', 'dados_processados.csv')
     data_path = os.path.abspath(data_path)
     logger.info(f"Carregando dados de: {data_path}")
     df = pd.read_csv(data_path, parse_dates=['Data'])

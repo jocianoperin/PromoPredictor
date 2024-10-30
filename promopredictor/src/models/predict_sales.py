@@ -15,11 +15,16 @@ logger = get_logger(__name__)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 def fetch_data_for_prediction(produto_especifico):
-    # Ajustar o caminho para o diretório raiz do projeto
+    # Subir três níveis para chegar ao diretório raiz do projeto
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
     data_path = os.path.join(base_dir, 'data', 'dados_processados.csv')
     data_path = os.path.abspath(data_path)
     logger.info(f"Carregando dados de: {data_path}")
+    
+    if not os.path.exists(data_path):
+        logger.error(f"Arquivo de dados não encontrado em: {data_path}")
+        return None
+    
     df = pd.read_csv(data_path, parse_dates=['Data'])
     df_produto = df[df['CodigoProduto'] == produto_especifico]
     return df_produto
@@ -34,7 +39,7 @@ def preprocess_data(df, scaler):
         df['Mes'] = df['Data'].dt.month
         df['Dia'] = df['Data'].dt.day
         df['ValorUnitario'] = df['ValorTotal'] / df['QuantidadeLiquida']
-        df['ValorUnitario'].fillna(0, inplace=True)
+        df['ValorUnitario'] = df['ValorUnitario'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
         # Preencher NaNs nas features
         df['EmPromocao'] = df['EmPromocao'].fillna(0)
@@ -115,6 +120,7 @@ def predict_future_sales(produto_especifico):
         predictions_valor = []
 
         for i in range(len(X_future_scaled)):
+            # Concatenar o histórico com os dados futuros até o dia atual
             X_input = np.concatenate([X_history, X_future_scaled[:i+1]], axis=0)
             if len(X_input) < n_steps:
                 continue  # Pular se não houver dados suficientes
