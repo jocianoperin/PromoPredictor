@@ -6,7 +6,8 @@ import os
 import joblib
 from tensorflow.keras.models import load_model
 from src.utils.logging_config import get_logger
-import holidays
+from workalendar.america import Brazil
+from datetime import timedelta
 
 logger = get_logger(__name__)
 
@@ -14,8 +15,11 @@ logger = get_logger(__name__)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 def fetch_data_for_prediction(produto_especifico):
-    data_path = os.path.join(script_dir, '..', '..', 'data', 'dados_processados.csv')
+    # Ajustar o caminho para o diretório raiz do projeto
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
+    data_path = os.path.join(base_dir, 'data', 'dados_processados.csv')
     data_path = os.path.abspath(data_path)
+    logger.info(f"Carregando dados de: {data_path}")
     df = pd.read_csv(data_path, parse_dates=['Data'])
     df_produto = df[df['CodigoProduto'] == produto_especifico]
     return df_produto
@@ -32,8 +36,13 @@ def preprocess_data(df, scaler):
         df['ValorUnitario'] = df['ValorTotal'] / df['QuantidadeLiquida']
         df['ValorUnitario'].fillna(0, inplace=True)
 
-        # Selecionar as colunas para o modelo
-        features = ['EmPromocao', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado']
+        # Preencher NaNs nas features
+        df['EmPromocao'] = df['EmPromocao'].fillna(0)
+        df['Feriado'] = df['Feriado'].fillna(0)
+        df['VésperaDeFeriado'] = df['VésperaDeFeriado'].fillna(0)
+
+        # Selecionar as colunas para o modelo, incluindo 'VésperaDeFeriado'
+        features = ['EmPromocao', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VésperaDeFeriado']
         X = df[features]
 
         # Escalar os dados usando o scaler ajustado
@@ -65,11 +74,7 @@ def predict_future_sales(produto_especifico):
             return
 
         model_un = load_model(model_un_path, compile=False)
-        model_un.compile(optimizer='adam', loss='mse')
-
         model_valor = load_model(model_valor_path, compile=False)
-        model_valor.compile(optimizer='adam', loss='mse')
-
         scaler = joblib.load(scaler_path)
 
         # Pré-processar os dados históricos
@@ -86,11 +91,19 @@ def predict_future_sales(produto_especifico):
         df_future['DiaDaSemana'] = df_future['Data'].dt.dayofweek
         df_future['Mes'] = df_future['Data'].dt.month
         df_future['Dia'] = df_future['Data'].dt.day
-        br_holidays = holidays.Brazil()
-        df_future['Feriado'] = df_future['Data'].apply(lambda x: 1 if x in br_holidays else 0)
+
+        # Marcar feriados e vésperas de feriado prolongado
+        cal = Brazil()
+        df_future['Feriado'] = df_future['Data'].apply(lambda x: 1 if cal.is_holiday(x) else 0)
+        df_future['VésperaDeFeriado'] = df_future['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
+
+        # Preencher NaNs nas features futuras
+        df_future['EmPromocao'] = df_future['EmPromocao'].fillna(0)
+        df_future['Feriado'] = df_future['Feriado'].fillna(0)
+        df_future['VésperaDeFeriado'] = df_future['VésperaDeFeriado'].fillna(0)
 
         # Selecionar colunas
-        features = ['EmPromocao', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado']
+        features = ['EmPromocao', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VésperaDeFeriado']
         X_future = df_future[features]
         X_future_scaled = scaler.transform(X_future)
 
@@ -102,11 +115,9 @@ def predict_future_sales(produto_especifico):
         predictions_valor = []
 
         for i in range(len(X_future_scaled)):
-            if i == 0:
-                X_input = np.concatenate([X_history, X_future_scaled[:i+1]], axis=0)
-            else:
-                X_input = np.concatenate([X_history, X_future_scaled[:i+1]], axis=0)
-
+            X_input = np.concatenate([X_history, X_future_scaled[:i+1]], axis=0)
+            if len(X_input) < n_steps:
+                continue  # Pular se não houver dados suficientes
             X_input_seq = []
             for j in range(len(X_input) - n_steps + 1):
                 X_input_seq.append(X_input[j:j + n_steps])
@@ -121,12 +132,10 @@ def predict_future_sales(produto_especifico):
             y_pred_valor = model_valor.predict(X_input_seq)
             predictions_valor.append(y_pred_valor[-1][0])
 
-        # Preparar DataFrame para as previsões
-        df_predictions = pd.DataFrame({
-            'Data': df_future['Data'],
-            'ValorUnitarioPrevisto': predictions_valor,
-            'QuantidadeTotalPrevista': predictions_un
-        })
+        # Ajustar o DataFrame de previsões
+        df_predictions = df_future.iloc[n_steps - 1:].copy()
+        df_predictions['ValorUnitarioPrevisto'] = predictions_valor
+        df_predictions['QuantidadeTotalPrevista'] = predictions_un
 
         # Salvar previsões
         predictions_dir = os.path.join(script_dir, '..', '..', 'data', 'predictions')
@@ -138,6 +147,18 @@ def predict_future_sales(produto_especifico):
 
     except Exception as e:
         logger.error(f"Erro durante a previsão: {e}")
+
+def is_feriado_prolongado(date, calendar):
+    """
+    Identifica se a data é véspera de um feriado prolongado.
+    """
+    if calendar.is_holiday(date + timedelta(days=1)):
+        return True
+    elif calendar.is_holiday(date + timedelta(days=3)) and date.weekday() == 4:
+        return True
+    elif calendar.is_holiday(date + timedelta(days=2)) and date.weekday() == 3:
+        return True
+    return False
 
 if __name__ == "__main__":
     produto_especifico = 26173  # Substitua pelo código do produto desejado

@@ -14,7 +14,7 @@ def main():
         
         # Treinamento e Salvamento do Modelo
         logger.info("1. Treinando e salvando o modelo para o produto específico...")
-        train_and_evaluate_models(produto_especifico)
+        #train_and_evaluate_models(produto_especifico)
         logger.info("Modelo treinado e salvo com sucesso.")
         
         # Previsão e Inserção dos Dados Previstos

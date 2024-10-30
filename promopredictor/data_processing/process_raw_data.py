@@ -4,7 +4,8 @@ import os
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
-import holidays
+from workalendar.america import Brazil
+from datetime import timedelta
 
 def create_db_connection():
     try:
@@ -53,19 +54,28 @@ def clean_data(df):
     return df
 
 def feature_engineering(df):
+    # Configurar o calendário de feriados do Brasil
+    cal = Brazil()
+
     # Variáveis temporais
     df['DiaDaSemana'] = df['Data'].dt.dayofweek
     df['Mes'] = df['Data'].dt.month
     df['Dia'] = df['Data'].dt.day
-    # Feriados
-    br_holidays = holidays.Brazil()
-    df['Feriado'] = df['Data'].apply(lambda x: 1 if x in br_holidays else 0)
+    
+    # Marcar feriados
+    df['Feriado'] = df['Data'].apply(lambda x: 1 if cal.is_holiday(x) else 0)
+
+    # Marcar vésperas de feriado prolongado
+    df['VésperaDeFeriado'] = df['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
+
     # Promoção
     df['EmPromocao'] = df['PrecoemPromocao']
+    
     # Rentabilidade
     df['Rentabilidade'] = (df['ValorUnitario'] - df['ValorCusto']) / df['ValorCusto']
     df['Rentabilidade'] = df['Rentabilidade'].replace([np.inf, -np.inf], np.nan)
     df['Rentabilidade'] = df['Rentabilidade'].fillna(0)
+    
     # Desconto e acréscimo aplicados
     df['DescontoAplicado'] = df['DescontoGeral'] + df['Desconto']
     df['AcrescimoAplicado'] = df['AcrescimoGeral'] + df['Acrescimo']
@@ -73,6 +83,23 @@ def feature_engineering(df):
     df['QuantidadeLiquida'] = df['Quantidade'] - df['QuantDevolvida']
     df['QuantidadeLiquida'] = df['QuantidadeLiquida'].fillna(df['Quantidade'])
     return df
+
+def is_feriado_prolongado(date, calendar):
+    """
+    Identifica se a data é véspera de um feriado prolongado.
+    - Se o feriado cair na sexta-feira, marca a quinta-feira como véspera.
+    - Se o feriado cair na segunda-feira, marca sexta, sábado e domingo como véspera.
+    """
+    if calendar.is_holiday(date + timedelta(days=1)):
+        # Véspera de um feriado normal
+        return True
+    elif calendar.is_holiday(date + timedelta(days=3)) and date.weekday() == 4:
+        # Sexta-feira é véspera de feriado prolongado na segunda
+        return True
+    elif calendar.is_holiday(date + timedelta(days=2)) and date.weekday() == 3:
+        # Quinta-feira é véspera de feriado prolongado na sexta
+        return True
+    return False
 
 def main():
     connection = create_db_connection()
@@ -90,7 +117,7 @@ def main():
         os.makedirs('data', exist_ok=True)
 
         # Salvar o dataframe processado em um arquivo CSV
-        df_processed.to_csv('../data/dados_processados.csv', index=False, sep=',')
+        df_processed.to_csv('data/dados_processados.csv', index=False, sep=',')
         print('Dados processados salvos em data/dados_processados.csv.')
 
         # Verificar se há valores nulos
