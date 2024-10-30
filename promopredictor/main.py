@@ -1,3 +1,5 @@
+# promopredictor/main.py
+
 from src.models.train_model import train_and_evaluate_models
 from src.models.predict_sales import predict_future_sales
 from src.visualizations.general_forecast_analysis import plot_forecast_analysis
@@ -14,7 +16,7 @@ def main():
 
         # Treinamento e Salvamento do Modelo
         logger.info("1. Treinando e salvando o modelo para o produto específico...")
-        train_and_evaluate_models(produto_especifico)
+        #train_and_evaluate_models(produto_especifico)  # Descomente se precisar treinar os modelos
         logger.info("Modelo treinado e salvo com sucesso.")
 
         # Previsão e Inserção dos Dados Previstos
