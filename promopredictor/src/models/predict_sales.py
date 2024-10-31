@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 import joblib
-from tensorflow.keras.models import load_model
+from tensorflow.python.keras.models import load_model
 from src.utils.logging_config import get_logger
 from workalendar.america import Brazil
 from datetime import timedelta

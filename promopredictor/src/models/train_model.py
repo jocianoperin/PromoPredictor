@@ -5,10 +5,10 @@ import os
 import numpy as np
 import joblib
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Input
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.python.keras.models import Sequential
+from tensorflow.python.keras.layers import LSTM, Dense, Input
+from tensorflow.python.keras.callbacks import EarlyStopping
+from tensorflow.python.keras.optimizers import RMSprop
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ def train_and_evaluate_models(produto_especifico):
         return
 
     # Criar sequências
-    n_steps = 180
+    n_steps = 30
     X_train_seq, y_train_un_seq = create_sequences(X_train, y_train_un, n_steps)
     X_test_seq, y_test_un_seq = create_sequences(X_test, y_test_un, n_steps)
     _, y_train_valor_seq = create_sequences(X_train, y_train_valor, n_steps)
@@ -53,25 +53,25 @@ def train_and_evaluate_models(produto_especifico):
     # Definir o modelo para Quantidade de Unidades Vendidas
     model_un = Sequential()
     model_un.add(Input(shape=(n_steps, X_train_seq.shape[2])))
-    model_un.add(LSTM(100, activation='tanh'))
+    model_un.add(LSTM(50, activation='tanh'))
     model_un.add(Dense(1))
-    optimizer_un = RMSprop(learning_rate=0.01)
+    optimizer_un = RMSprop(learning_rate=0.0001)
     model_un.compile(optimizer=optimizer_un, loss='mse')
 
     # Treinar o modelo
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10)
-    model_un.fit(X_train_seq, y_train_un_seq, epochs=200, validation_data=(X_test_seq, y_test_un_seq), callbacks=[early_stopping])
+    early_stopping = EarlyStopping(monitor='val_loss', patience=100)
+    model_un.fit(X_train_seq, y_train_un_seq, epochs=150, validation_data=(X_test_seq, y_test_un_seq), callbacks=[early_stopping])
 
     # Definir o modelo para Valor Unitário
     model_valor = Sequential()
     model_valor.add(Input(shape=(n_steps, X_train_seq.shape[2])))
-    model_valor.add(LSTM(100, activation='tanh'))
+    model_valor.add(LSTM(50, activation='tanh'))
     model_valor.add(Dense(1))
     optimizer_valor = RMSprop(learning_rate=0.01)
     model_valor.compile(optimizer=optimizer_valor, loss='mse')
 
     # Treinar o modelo
-    model_valor.fit(X_train_seq, y_train_valor_seq, epochs=200, validation_data=(X_test_seq, y_test_valor_seq), callbacks=[early_stopping])
+    model_valor.fit(X_train_seq, y_train_valor_seq, epochs=150, validation_data=(X_test_seq, y_test_valor_seq), callbacks=[early_stopping])
 
     # Salvar os modelos e o scaler
     script_dir = os.path.dirname(os.path.abspath(__file__))
