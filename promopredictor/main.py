@@ -26,8 +26,8 @@ def main():
 
         # Comparação das Previsões com os Valores Reais
         logger.info("3. Comparando previsões com valores reais e gerando gráfico...")
-        plot_forecast_analysis(produto_especifico)
-        plt.savefig('quantidade_unidades_vendidas.png')
+        #plot_forecast_analysis(produto_especifico)
+        #plt.savefig('quantidade_unidades_vendidas.png')
         logger.info("Comparação concluída e gráfico gerado com sucesso.")
 
         # Visualização comparativa
