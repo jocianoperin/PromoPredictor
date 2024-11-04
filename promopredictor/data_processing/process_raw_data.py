@@ -1,5 +1,3 @@
-# process_raw_data.py
-
 import os
 import pandas as pd
 import numpy as np
@@ -28,32 +26,91 @@ def extract_raw_data(connection, produto_especifico):
     return df
 
 def clean_data(df):
-    # Remover vendas canceladas
-    df = df[df['VendaCancelada'] != 1]
-    # Remover itens cancelados
-    df = df[df['ItemCancelado'] != 1]
-    # Remover registros com quantidade <= 0
-    df = df[df['Quantidade'] > 0]
-    # Remover registros com ValorTotal <= 0
-    df = df[df['ValorTotal'] > 0]
-    # Remover registros com TotalPedido <= 0
-    df = df[df['TotalPedido'] > 0]
+    if 'Data' not in df.columns or 'Hora' not in df.columns:
+        raise KeyError("'Data' ou 'Hora' não está presente no DataFrame.")
 
-    # Remover registros com valores nulos em campos críticos
-    campos_criticos = ['Data', 'CodigoProduto', 'Quantidade', 'ValorTotal']
-    df.dropna(subset=campos_criticos, inplace=True)
+    # Converter a coluna 'Data' para datetime
+    df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
 
-    # Converter tipos de dados
-    df['Data'] = pd.to_datetime(df['Data'])
+    # Remover linhas com 'Data' nula
+    df = df.dropna(subset=['Data'])
 
-    # Ajuste na conversão da coluna 'Hora'
-    df['Hora'] = df['Hora'].apply(lambda x: (pd.Timestamp('1900-01-01') + x).time())
+    # Filtrar dados a partir de 01/01/2019
+    df = df[df['Data'] >= pd.to_datetime('2019-01-01')]
 
-    campos_numericos = ['Quantidade', 'ValorUnitario', 'ValorTotal', 'Desconto', 'Acrescimo', 'ValorCusto']
-    df[campos_numericos] = df[campos_numericos].astype(float)
-    return df
+    # Verificar o tipo da coluna 'Hora'
+    if np.issubdtype(df['Hora'].dtype, np.number):
+        # Se 'Hora' é numérica, assumimos que representa segundos e convertemos para timedelta
+        df['Hora'] = pd.to_timedelta(df['Hora'], unit='s')
+    elif np.issubdtype(df['Hora'].dtype, np.timedelta64):
+        # Se 'Hora' já é timedelta, não fazemos nada
+        pass
+    else:
+        # Se 'Hora' é string, convertemos para timedelta
+        df['Hora'] = pd.to_timedelta(df['Hora'])
+
+    # Criar a coluna 'DataHora'
+    df['DataHora'] = df['Data'] + df['Hora']
+
+    # Ajustar colunas para 1 ou 0
+    df['VendaCancelada'] = df['VendaCancelada'].fillna(0).apply(lambda x: 1 if x == 1 else 0)
+    df['ItemCancelado'] = df['ItemCancelado'].fillna(0).apply(lambda x: 1 if x == 1 else 0)
+
+    # Preencher colunas numéricas com 0 onde houver valores nulos
+    numeric_cols = ['DescontoGeral', 'AcrescimoGeral', 'Desconto', 'Acrescimo', 'PrecoemPromocao']
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = df[col].fillna(0)
+
+    # Garantir que 'PrecoemPromocao' contenha apenas 0 ou 1
+    if 'PrecoemPromocao' in df.columns:
+        df['PrecoemPromocao'] = df['PrecoemPromocao'].apply(lambda x: 1 if x == 1 else 0)
+    else:
+        df['PrecoemPromocao'] = 0
+
+    # Adicionar 'EmPromocao' se não existir e ajustar valores
+    df['EmPromocao'] = df['PrecoemPromocao']
+
+    # Forçar 2 casas decimais para valores monetários
+    cols_2_decimals = ['TotalPedido', 'TotalCusto', 'ValorUnitario', 'ValorTotal',
+                       'ValorCusto', 'ValorCustoGerencial']
+    for col in cols_2_decimals:
+        if col in df.columns:
+            df[col] = df[col].round(2)
+
+    # Forçar 4 casas decimais para percentuais e descontos
+    cols_4_decimals = ['DescontoGeral', 'AcrescimoGeral', 'Desconto', 'Acrescimo',
+                       'Rentabilidade', 'DescontoAplicado', 'AcrescimoAplicado']
+    for col in cols_4_decimals:
+        if col in df.columns:
+            df[col] = df[col].astype(float).round(4)
+
+    # Substituir valores nulos em colunas numéricas com 0 e converter para int
+    cols_fill_zeros = ['QuantDevolvida', 'CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo',
+                       'CodigoFabricante', 'CodigoFornecedor', 'CodigoKitPrincipal', 'ValorKitPrincipal']
+    for col in cols_fill_zeros:
+        if col in df.columns:
+            df[col] = df[col].fillna(0).astype(int)
+
+    # Incluir 'Data' em cols_to_keep
+    cols_to_keep = [
+        'CodigoVenda', 'Data', 'DataHora', 'Status', 'VendaCancelada', 'TotalPedido',
+        'DescontoGeral', 'AcrescimoGeral', 'TotalCusto', 'CodigoProduto',
+        'Quantidade', 'ValorUnitario', 'ValorTotal', 'Desconto', 'Acrescimo',
+        'ItemCancelado', 'QuantDevolvida', 'PrecoemPromocao', 'CodigoSecao',
+        'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante', 'ValorCusto',
+        'ValorCustoGerencial', 'CodigoFornecedor', 'CodigoKitPrincipal',
+        'ValorKitPrincipal', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VésperaDeFeriado',
+        'EmPromocao', 'Rentabilidade', 'DescontoAplicado', 'AcrescimoAplicado',
+        'QuantidadeLiquida'
+    ]
+
+    return df[[col for col in cols_to_keep if col in df.columns]]
 
 def feature_engineering(df):
+    if 'Data' not in df.columns:
+        raise KeyError("'Data' não está presente no DataFrame.")
+
     # Configurar o calendário de feriados do Brasil
     cal = Brazil()
 
@@ -61,43 +118,49 @@ def feature_engineering(df):
     df['DiaDaSemana'] = df['Data'].dt.dayofweek
     df['Mes'] = df['Data'].dt.month
     df['Dia'] = df['Data'].dt.day
-    
+
     # Marcar feriados
     df['Feriado'] = df['Data'].apply(lambda x: 1 if cal.is_holiday(x) else 0)
 
     # Marcar vésperas de feriado prolongado
     df['VésperaDeFeriado'] = df['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
 
-    # Promoção
-    df['EmPromocao'] = df['PrecoemPromocao']
-    
     # Rentabilidade
-    df['Rentabilidade'] = (df['ValorUnitario'] - df['ValorCusto']) / df['ValorCusto']
-    df['Rentabilidade'] = df['Rentabilidade'].replace([np.inf, -np.inf], np.nan)
-    df['Rentabilidade'] = df['Rentabilidade'].fillna(0)
-    
+    if 'ValorCusto' in df.columns and 'ValorUnitario' in df.columns:
+        df['Rentabilidade'] = ((df['ValorUnitario'] - df['ValorCusto']) / df['ValorCusto']).astype(float).round(4)
+        df['Rentabilidade'].replace([np.inf, -np.inf], np.nan, inplace=True)
+        df['Rentabilidade'].fillna(0, inplace=True)
+
     # Desconto e acréscimo aplicados
-    df['DescontoAplicado'] = df['DescontoGeral'] + df['Desconto']
-    df['AcrescimoAplicado'] = df['AcrescimoGeral'] + df['Acrescimo']
+    if 'DescontoGeral' in df.columns and 'Desconto' in df.columns:
+        df['DescontoAplicado'] = df['DescontoGeral'] + df['Desconto']
+    else:
+        df['DescontoAplicado'] = 0
+
+    if 'AcrescimoGeral' in df.columns and 'Acrescimo' in df.columns:
+        df['AcrescimoAplicado'] = df['AcrescimoGeral'] + df['Acrescimo']
+    else:
+        df['AcrescimoAplicado'] = 0
+
+    # Garantir que 'DescontoAplicado' e 'AcrescimoAplicado' não tenham valores nulos
+    df['DescontoAplicado'] = df['DescontoAplicado'].fillna(0).astype(float).round(4)
+    df['AcrescimoAplicado'] = df['AcrescimoAplicado'].fillna(0).astype(float).round(4)
+
     # Quantidade líquida
-    df['QuantidadeLiquida'] = df['Quantidade'] - df['QuantDevolvida']
-    df['QuantidadeLiquida'] = df['QuantidadeLiquida'].fillna(df['Quantidade'])
+    if 'Quantidade' in df.columns and 'QuantDevolvida' in df.columns:
+        df['QuantidadeLiquida'] = df['Quantidade'] - df['QuantDevolvida']
+        df['QuantidadeLiquida'].fillna(df['Quantidade'], inplace=True)
+    else:
+        df['QuantidadeLiquida'] = df['Quantidade']
+
     return df
 
 def is_feriado_prolongado(date, calendar):
-    """
-    Identifica se a data é véspera de um feriado prolongado.
-    - Se o feriado cair na sexta-feira, marca a quinta-feira como véspera.
-    - Se o feriado cair na segunda-feira, marca sexta, sábado e domingo como véspera.
-    """
     if calendar.is_holiday(date + timedelta(days=1)):
-        # Véspera de um feriado normal
         return True
     elif calendar.is_holiday(date + timedelta(days=3)) and date.weekday() == 4:
-        # Sexta-feira é véspera de feriado prolongado na segunda
         return True
     elif calendar.is_holiday(date + timedelta(days=2)) and date.weekday() == 3:
-        # Quinta-feira é véspera de feriado prolongado na sexta
         return True
     return False
 
