@@ -7,7 +7,11 @@ from src.utils.logging_config import get_logger
 from src.services.data_processing import (
     extract_raw_data,
     clean_data,
-    feature_engineering
+    save_transaction_data,
+    aggregate_data,
+    feature_engineering,
+    save_daily_data,
+    feature_engineering_transacao,
 )
 import os
 
@@ -18,7 +22,6 @@ def main():
     try:
         # Lista de produtos para processar
         produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
-        #produtos_especificos = [26173, 12345, 67890]  # Substitua pelos códigos dos produtos desejados
 
         for produto_especifico in produtos_especificos:
             logger.info(f"Processando o produto {produto_especifico}")
@@ -29,15 +32,24 @@ def main():
 
             if not df_raw.empty:
                 df_cleaned = clean_data(df_raw)
-                df_processed = feature_engineering(df_cleaned)
 
                 # Criar o diretório 'data' dentro de 'promopredictor' se não existir
-                data_dir = os.path.join('promopredictor', 'data')
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                data_dir = os.path.join(base_dir, 'data')
                 os.makedirs(data_dir, exist_ok=True)
 
-                # Salvar o dataframe processado em um arquivo CSV por produto
-                df_processed.to_csv(os.path.join(data_dir, f'dados_processados_{produto_especifico}.csv'), index=False, sep=',')
-                logger.info(f'Dados processados salvos em promopredictor/data/dados_processados_{produto_especifico}.csv.')
+                # Aplicar feature_engineering_transacao
+                df_transacao = feature_engineering_transacao(df_cleaned)
+                save_transaction_data(df_transacao, produto_especifico, data_dir)
+
+                # Criar dados agregados por dia
+                df_aggregated = aggregate_data(df_cleaned, produto_especifico)
+                df_processed = feature_engineering(df_aggregated)
+
+                # Salvar dados agregados por dia
+                save_daily_data(df_processed, produto_especifico, data_dir)
+
+                logger.info(f'Dados processados salvos para o produto {produto_especifico}.')
 
                 # Verificar se há valores nulos
                 logger.info("Valores nulos por coluna:")
@@ -50,10 +62,10 @@ def main():
                 logger.error("Não foi possível extrair os dados. Pulando para o próximo produto.")
                 continue
 
-            # Etapa 2: Treinamento e Salvamento do Modelo
-            logger.info("2. Treinando e salvando o modelo para o produto específico...")
+            # Etapa 2: Treinamento e Salvamento dos Modelos
+            logger.info("2. Treinando e salvando os modelos para o produto específico...")
             train_and_evaluate_models(produto_especifico)
-            logger.info("Modelo treinado e salvo com sucesso.")
+            logger.info("Modelos treinados e salvos com sucesso.")
 
             # Etapa 3: Previsão e Inserção dos Dados Previstos
             logger.info("3. Realizando previsões e inserindo dados previstos...")

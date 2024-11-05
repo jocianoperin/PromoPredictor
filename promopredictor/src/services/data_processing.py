@@ -117,6 +117,11 @@ def clean_data(df):
 
     return df
 
+def save_transaction_data(df, produto_especifico, data_dir):
+    # Salvar dados no nível de transação
+    df.to_csv(os.path.join(data_dir, f'dados_transacao_{produto_especifico}.csv'), index=False, sep=',')
+    logger.info(f'Dados de transação salvos em data/dados_transacao_{produto_especifico}.csv.')
+
 def aggregate_data(df, produto_especifico):
     # Agrupar por Data e somar as quantidades e valores
     df_grouped = df.groupby('Data').agg({
@@ -167,15 +172,13 @@ def create_complete_date_range(df, produto_especifico):
                     'QuantDevolvida', 'ValorCusto', 'ValorCustoGerencial', 'TotalCusto',
                     'DescontoGeral', 'AcrescimoGeral', 'TotalPedido', 'VendaCancelada',
                     'ItemCancelado', 'PrecoemPromocao', 'EmPromocao', 'ValorKitPrincipal',
-                    'ValorUnitario', 'ValorCusto', 'ValorCustoGerencial']
-
+                    'ValorUnitario']
     for col in numeric_cols:
         df_complete[col] = df_complete[col].fillna(0)
 
     # Preencher colunas categóricas com o valor mais frequente ou um valor padrão
     categorical_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante',
                         'CodigoFornecedor', 'CodigoKitPrincipal']
-
     for col in categorical_cols:
         df_complete[col] = df_complete[col].fillna(method='ffill').fillna(method='bfill').fillna(0).astype(int)
 
@@ -200,7 +203,7 @@ def feature_engineering(df):
     df['Feriado'] = df['Data'].apply(lambda x: 1 if cal.is_holiday(x) else 0)
 
     # Marcar vésperas de feriado prolongado
-    df['VésperaDeFeriado'] = df['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
+    df['VesperaDeFeriado'] = df['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
 
     # Rentabilidade média do dia
     if 'ValorUnitario' in df.columns and 'ValorCusto' in df.columns:
@@ -231,14 +234,20 @@ def feature_engineering(df):
         'DescontoAplicado', 'AcrescimoAplicado', 'TotalPedido', 'ValorCusto',
         'ValorCustoGerencial', 'TotalCusto', 'Rentabilidade', 'ValorKitPrincipal',
         'VendaCancelada', 'ItemCancelado', 'PrecoemPromocao', 'EmPromocao',
-        'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VésperaDeFeriado'
+        'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VesperaDeFeriado'
     ]
 
     df = df[[col for col in cols_order if col in df.columns]]
 
     return df
 
+def save_daily_data(df, produto_especifico, data_dir):
+    # Salvar dados agregados por dia
+    df.to_csv(os.path.join(data_dir, f'dados_agrupados_{produto_especifico}.csv'), index=False, sep=',')
+    logger.info(f'Dados diários salvos em data/dados_agrupados_{produto_especifico}.csv.')
+
 def is_feriado_prolongado(date, calendar):
+    date = pd.to_datetime(date)
     if calendar.is_holiday(date + timedelta(days=1)):
         return True
     elif calendar.is_holiday(date + timedelta(days=3)) and date.weekday() == 4:
@@ -246,3 +255,23 @@ def is_feriado_prolongado(date, calendar):
     elif calendar.is_holiday(date + timedelta(days=2)) and date.weekday() == 3:
         return True
     return False
+
+def feature_engineering_transacao(df):
+    if 'DataHora' not in df.columns:
+        raise KeyError("'DataHora' não está presente no DataFrame.")
+
+    # Configurar o calendário de feriados do Brasil
+    cal = Brazil()
+
+    # Variáveis temporais
+    df['DiaDaSemana'] = df['DataHora'].dt.dayofweek
+    df['Mes'] = df['DataHora'].dt.month
+    df['Dia'] = df['DataHora'].dt.day
+
+    # Marcar feriados
+    df['Feriado'] = df['DataHora'].dt.date.apply(lambda x: 1 if cal.is_holiday(x) else 0)
+
+    # Marcar vésperas de feriado prolongado
+    df['VesperaDeFeriado'] = df['DataHora'].dt.date.apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
+
+    return df

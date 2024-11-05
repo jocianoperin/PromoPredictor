@@ -100,7 +100,7 @@ def clean_data(df):
         'ItemCancelado', 'QuantDevolvida', 'PrecoemPromocao', 'CodigoSecao',
         'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante', 'ValorCusto',
         'ValorCustoGerencial', 'CodigoFornecedor', 'CodigoKitPrincipal',
-        'ValorKitPrincipal', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VésperaDeFeriado',
+        'ValorKitPrincipal', 'DiaDaSemana', 'Mes', 'Dia', 'Feriado', 'VesperaDeFeriado',
         'EmPromocao', 'Rentabilidade', 'DescontoAplicado', 'AcrescimoAplicado',
         'QuantidadeLiquida'
     ]
@@ -123,7 +123,7 @@ def feature_engineering(df):
     df['Feriado'] = df['Data'].apply(lambda x: 1 if cal.is_holiday(x) else 0)
 
     # Marcar vésperas de feriado prolongado
-    df['VésperaDeFeriado'] = df['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
+    df['VesperaDeFeriado'] = df['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
 
     # Rentabilidade
     if 'ValorCusto' in df.columns and 'ValorUnitario' in df.columns:

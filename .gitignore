@@ -177,6 +177,7 @@ promopredictor.rar
 
 #Modelos treinados
 trained_models/
+kt_tuner/
 
 #Outputs
 outputs/
