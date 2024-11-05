@@ -1,6 +1,6 @@
 # promopredictor/main.py
 
-from src.models.train_model import train_and_evaluate_models
+from src.models.train_model import train_and_evaluate_models, adjust_gpu_memory
 from src.models.predict_sales import predict_future_sales
 from src.visualizations.compare_predictions import compare_predictions
 from src.utils.logging_config import get_logger
@@ -24,7 +24,7 @@ def main():
         produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
 
         for produto_especifico in produtos_especificos:
-            logger.info(f"Processando o produto {produto_especifico}")
+            """logger.info(f"Processando o produto {produto_especifico}")
 
             # Etapa 1: Extração e Processamento de Dados
             logger.info("1. Extraindo e processando dados...")
@@ -60,7 +60,12 @@ def main():
                 logger.info(df_processed.head())
             else:
                 logger.error("Não foi possível extrair os dados. Pulando para o próximo produto.")
-                continue
+                continue"""
+            
+            # Chamar a função para ajustar a memória da GPU
+            logger.info("Aumentando memória da GPU para operar em capacidade máxima.")
+            adjust_gpu_memory()
+            logger.info("Memória da GPU otimizada com sucesso.")
 
             # Etapa 2: Treinamento e Salvamento dos Modelos
             logger.info("2. Treinando e salvando os modelos para o produto específico...")

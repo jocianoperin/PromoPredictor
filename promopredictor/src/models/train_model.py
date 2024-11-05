@@ -11,6 +11,8 @@ from tensorflow.keras.optimizers import Adam # type: ignore
 from src.utils.logging_config import get_logger
 import matplotlib.pyplot as plt
 import keras_tuner as kt  # Importando o Keras Tuner
+# Adicionamos o import do TensorFlow para configurar a GPU
+import tensorflow as tf
 
 logger = get_logger(__name__)
 
@@ -38,6 +40,28 @@ DATA_DIR = os.path.join(BASE_DIR, 'promopredictor', 'data')
 os.makedirs(MODELS_DIR, exist_ok=True)
 PLOTS_DIR = os.path.join(BASE_DIR, 'promopredictor', 'plots')
 os.makedirs(PLOTS_DIR, exist_ok=True)
+
+# ===========================
+# Configurações de GPU
+# ===========================
+
+def adjust_gpu_memory():
+    """
+    Ajusta o uso de memória da GPU para otimizar o treinamento.
+    """
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Definir limite de memória manualmente
+            for gpu in gpus:
+                tf.config.experimental.set_virtual_device_configuration(
+                    gpu,
+                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4000)]
+                )
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            logger.info(f"{len(gpus)} GPUs físicas, {len(logical_gpus)} GPUs lógicas configuradas.")
+        except RuntimeError as e:
+            logger.error(f"Erro ao configurar a GPU: {e}")
 
 # ===========================
 # Classe Personalizada para LabelEncoder com Tratamento de Rótulos Desconhecidos
@@ -135,14 +159,14 @@ def train_unit_price_model(df, produto_especifico):
         learning_rate = hp.Float('learning_rate', min_value=1e-4, max_value=1e-2, sampling='log')
         optimizer = Adam(learning_rate=learning_rate)
         model.compile(optimizer=optimizer, loss='mean_squared_error')
-        
+
         return model
 
     # Configurar o tuner
     tuner = kt.RandomSearch(
         build_unit_price_model,
         objective='val_loss',
-        max_trials=10,  # Ajuste conforme necessário
+        max_trials=100,  # Ajuste conforme necessário
         executions_per_trial=1,
         directory='kt_tuner',
         project_name=f'unit_price_model_{produto_especifico}'
@@ -315,7 +339,7 @@ def train_quantity_model(df, produto_especifico):
     tuner = kt.RandomSearch(
         build_quantity_model,
         objective='val_loss',
-        max_trials=10,  # Ajuste conforme necessário
+        max_trials=100,  # Ajuste conforme necessário
         executions_per_trial=1,
         directory='kt_tuner',
         project_name=f'quantity_model_{produto_especifico}'

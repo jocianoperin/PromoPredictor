@@ -1,5 +1,3 @@
-# src/visualizations/compare_predictions.py
-
 import os
 import pandas as pd
 import numpy as np
@@ -14,9 +12,9 @@ logger = get_logger(__name__)
 # Hiperparâmetros e Configurações
 # ===========================
 
-# Período para comparação
-FUTURE_START_DATE = '2024-01-01'
-FUTURE_END_DATE = '2024-03-31'
+# Período para comparação - Ajuste conforme seus dados reais
+FUTURE_START_DATE = '2023-01-01'  # Altere para uma data apropriada
+FUTURE_END_DATE = '2023-12-31'    # Altere para uma data apropriada
 
 # Caminhos para os diretórios de dados e modelos
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +23,9 @@ DATA_DIR = os.path.join(BASE_DIR, 'promopredictor', 'data')
 PREDICTIONS_DIR = os.path.join(DATA_DIR, 'predictions')
 PLOTS_DIR = os.path.join(BASE_DIR, 'promopredictor', 'plots')
 os.makedirs(PLOTS_DIR, exist_ok=True)
+
+logger.info(f"PLOTS_DIR está definido como: {PLOTS_DIR}")
+logger.info(f"PREDICTIONS_DIR está definido como: {PREDICTIONS_DIR}")
 
 # ===========================
 # Função Principal
@@ -42,7 +43,7 @@ def compare_predictions(produto_especifico):
     df_pred_quantity = load_predictions(produto_especifico, tipo='quantity')
 
     if df_pred_unit_price.empty or df_pred_quantity.empty:
-        logger.error("Previsões não encontradas.")
+        logger.error("Previsões não encontradas ou estão vazias.")
         return
 
     # Comparar preço unitário
@@ -62,6 +63,8 @@ def load_transaction_data(produto_especifico):
         return pd.DataFrame()
     df = pd.read_csv(data_path, parse_dates=['Data', 'DataHora'])
     df = df[(df['Data'] >= FUTURE_START_DATE) & (df['Data'] <= FUTURE_END_DATE)]
+    if df.empty:
+        logger.warning("Dados de transação estão vazios no período especificado.")
     return df
 
 def load_daily_data(produto_especifico):
@@ -71,6 +74,8 @@ def load_daily_data(produto_especifico):
         return pd.DataFrame()
     df = pd.read_csv(data_path, parse_dates=['Data'])
     df = df[(df['Data'] >= FUTURE_START_DATE) & (df['Data'] <= FUTURE_END_DATE)]
+    if df.empty:
+        logger.warning("Dados diários estão vazios no período especificado.")
     return df
 
 def load_predictions(produto_especifico, tipo='unit_price'):
@@ -82,10 +87,20 @@ def load_predictions(produto_especifico, tipo='unit_price'):
         logger.error(f"Previsões não encontradas em {predictions_path}")
         return pd.DataFrame()
     df = pd.read_csv(predictions_path, parse_dates=['Data'])
+    if df.empty:
+        logger.warning(f"Dados de previsão para {tipo} estão vazios.")
     return df
 
 def compare_unit_price(df_real, df_pred, produto_especifico):
     logger.info("Comparando preço unitário")
+
+    if df_real.empty:
+        logger.error("Dados reais de preço unitário estão vazios.")
+        return
+
+    if df_pred.empty:
+        logger.error("Dados previstos de preço unitário estão vazios.")
+        return
 
     # Agrupar dados reais por data e calcular média do preço unitário
     df_real_grouped = df_real.groupby('Data').agg({'ValorUnitario': 'mean'}).reset_index()
@@ -94,7 +109,7 @@ def compare_unit_price(df_real, df_pred, produto_especifico):
     # Unir dados reais e previsões
     df_compare = pd.merge(df_pred, df_real_grouped, on='Data', how='inner')
     if df_compare.empty:
-        logger.error("Nenhum dado para comparar preço unitário.")
+        logger.error("Nenhum dado para comparar preço unitário após a mesclagem.")
         return
 
     # Calcular métricas
@@ -114,17 +129,28 @@ def compare_unit_price(df_real, df_pred, produto_especifico):
     plt.legend()
     plt.tight_layout()
     plot_path = os.path.join(PLOTS_DIR, f'compare_unit_price_{produto_especifico}.png')
-    plt.savefig(plot_path)
+    try:
+        plt.savefig(plot_path)
+        logger.info(f"Gráfico de comparação de preço unitário salvo em {plot_path}")
+    except Exception as e:
+        logger.error(f"Erro ao salvar o gráfico de preço unitário: {e}")
     plt.close()
-    logger.info(f"Gráfico de comparação de preço unitário salvo em {plot_path}")
 
 def compare_quantity_sold(df_real, df_pred, produto_especifico):
     logger.info("Comparando quantidade vendida")
 
+    if df_real.empty:
+        logger.error("Dados reais de quantidade vendida estão vazios.")
+        return
+
+    if df_pred.empty:
+        logger.error("Dados previstos de quantidade vendida estão vazios.")
+        return
+
     # Unir dados reais e previsões
     df_compare = pd.merge(df_pred, df_real[['Data', 'QuantidadeLiquida']], on='Data', how='inner')
     if df_compare.empty:
-        logger.error("Nenhum dado para comparar quantidade vendida.")
+        logger.error("Nenhum dado para comparar quantidade vendida após a mesclagem.")
         return
 
     # Calcular métricas
@@ -144,9 +170,12 @@ def compare_quantity_sold(df_real, df_pred, produto_especifico):
     plt.legend()
     plt.tight_layout()
     plot_path = os.path.join(PLOTS_DIR, f'compare_quantity_{produto_especifico}.png')
-    plt.savefig(plot_path)
+    try:
+        plt.savefig(plot_path)
+        logger.info(f"Gráfico de comparação de quantidade vendida salvo em {plot_path}")
+    except Exception as e:
+        logger.error(f"Erro ao salvar o gráfico de quantidade vendida: {e}")
     plt.close()
-    logger.info(f"Gráfico de comparação de quantidade vendida salvo em {plot_path}")
 
 # ===========================
 # Execução Principal
