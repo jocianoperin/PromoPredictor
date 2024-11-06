@@ -20,7 +20,7 @@ def get_logger(name):
     """
     # Configura o nível de gravidade dos logs que serão capturados
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)  # Ou outro nível conforme necessário
+    logger.setLevel(logging.DEBUG)  # Ou outro nível conforme necessário
 
     # Define o caminho absoluto para a pasta de logs na raiz do projeto
     project_root = Path(__file__).resolve().parents[2]  # Ajusta com base na estrutura do seu projeto

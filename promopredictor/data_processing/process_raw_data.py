@@ -60,7 +60,7 @@ def clean_data(df):
     numeric_cols = ['DescontoGeral', 'AcrescimoGeral', 'Desconto', 'Acrescimo', 'PrecoemPromocao']
     for col in numeric_cols:
         if col in df.columns:
-            df[col] = df[col].fillna(0)
+            df[col].fillna(0, inplace=True)
 
     # Garantir que 'PrecoemPromocao' contenha apenas 0 ou 1
     if 'PrecoemPromocao' in df.columns:
@@ -91,6 +91,7 @@ def clean_data(df):
     for col in cols_fill_zeros:
         if col in df.columns:
             df[col] = df[col].fillna(0).astype(int)
+
 
     # Incluir 'Data' em cols_to_keep
     cols_to_keep = [

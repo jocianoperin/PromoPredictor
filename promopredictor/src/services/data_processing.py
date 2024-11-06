@@ -10,6 +10,28 @@ from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# ===========================
+# Hiperparâmetros e Configurações
+# ===========================
+
+# Período para comparação - Ajustado para 2024
+FUTURE_START_DATE = '2024-01-01'  # Ajustado para iniciar em 01/01/2024
+FUTURE_END_DATE = '2024-03-31'    # Mantido até 31/03/2024
+
+# Caminhos para os diretórios de dados e modelos
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+DATA_DIR = os.path.join(BASE_DIR, 'promopredictor', 'data')
+PREDICTIONS_DIR = os.path.join(DATA_DIR, 'predictions')
+PLOTS_DIR = os.path.join(BASE_DIR, 'promopredictor', 'plots')
+COMPARISON_DIR = os.path.join(BASE_DIR, 'promopredictor', 'comparisons')
+os.makedirs(PLOTS_DIR, exist_ok=True)
+os.makedirs(COMPARISON_DIR, exist_ok=True)
+
+logger.info(f"PLOTS_DIR está definido como: {PLOTS_DIR}")
+logger.info(f"PREDICTIONS_DIR está definido como: {PREDICTIONS_DIR}")
+logger.info(f"COMPARISON_DIR está definido como: {COMPARISON_DIR}")
+
 def extract_raw_data(produto_especifico):
     query = """
     SELECT
@@ -71,7 +93,7 @@ def clean_data(df):
     numeric_cols = ['DescontoGeral', 'AcrescimoGeral', 'Desconto', 'Acrescimo', 'PrecoemPromocao']
     for col in numeric_cols:
         if col in df.columns:
-            df[col] = df[col].fillna(0)
+            df[col].fillna(0, inplace=True)
 
     # Garantir que 'PrecoemPromocao' contenha apenas 0 ou 1
     if 'PrecoemPromocao' in df.columns:
@@ -100,7 +122,8 @@ def clean_data(df):
                        'CodigoFabricante', 'CodigoFornecedor', 'CodigoKitPrincipal', 'ValorKitPrincipal']
     for col in cols_fill_zeros:
         if col in df.columns:
-            df[col] = df[col].fillna(0).astype(int)
+            df[col].fillna(0, inplace=True)
+            df[col] = df[col].astype(int)
 
     # Incluir 'Data' em cols_to_keep
     cols_to_keep = [
@@ -180,7 +203,7 @@ def create_complete_date_range(df, produto_especifico):
     categorical_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante',
                         'CodigoFornecedor', 'CodigoKitPrincipal']
     for col in categorical_cols:
-        df_complete[col] = df_complete[col].fillna(method='ffill').fillna(method='bfill').fillna(0).astype(int)
+        df_complete[col] = df_complete[col].ffill().bfill().fillna(0).astype(int)
 
     # Adicionar a coluna 'CodigoProduto'
     df_complete['CodigoProduto'] = produto_especifico
@@ -241,21 +264,6 @@ def feature_engineering(df):
 
     return df
 
-def save_daily_data(df, produto_especifico, data_dir):
-    # Salvar dados agregados por dia
-    df.to_csv(os.path.join(data_dir, f'dados_agrupados_{produto_especifico}.csv'), index=False, sep=',')
-    logger.info(f'Dados diários salvos em data/dados_agrupados_{produto_especifico}.csv.')
-
-def is_feriado_prolongado(date, calendar):
-    date = pd.to_datetime(date)
-    if calendar.is_holiday(date + timedelta(days=1)):
-        return True
-    elif calendar.is_holiday(date + timedelta(days=3)) and date.weekday() == 4:
-        return True
-    elif calendar.is_holiday(date + timedelta(days=2)) and date.weekday() == 3:
-        return True
-    return False
-
 def feature_engineering_transacao(df):
     if 'DataHora' not in df.columns:
         raise KeyError("'DataHora' não está presente no DataFrame.")
@@ -275,3 +283,55 @@ def feature_engineering_transacao(df):
     df['VesperaDeFeriado'] = df['DataHora'].dt.date.apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
 
     return df
+
+def feature_engineering_lags(df):
+    if 'QuantidadeLiquida' not in df.columns:
+        raise KeyError("'QuantidadeLiquida' não está presente no DataFrame.")
+
+    # Criar features lag da variável alvo
+    for lag in range(1, 4):  # Criar 3 lags
+        df.loc[:, f'QuantidadeLiquida_Lag{lag}'] = df['QuantidadeLiquida'].shift(lag)
+    df.fillna(0, inplace=True)
+
+    return df
+
+def feature_engineering_final(df):
+    # Chama as funções de feature engineering
+    df = feature_engineering(df)
+    df = feature_engineering_lags(df)
+    return df
+
+def save_daily_data(df, produto_especifico, data_dir):
+    # Salvar dados agregados por dia
+    df.to_csv(os.path.join(data_dir, f'dados_agrupados_{produto_especifico}.csv'), index=False, sep=',')
+    logger.info(f'Dados diários salvos em data/dados_agrupados_{produto_especifico}.csv.')
+
+def is_feriado_prolongado(date, calendar):
+    date = pd.to_datetime(date)
+    if calendar.is_holiday(date + timedelta(days=1)):
+        return True
+    elif calendar.is_holiday(date + timedelta(days=3)) and date.weekday() == 4:
+        return True
+    elif calendar.is_holiday(date + timedelta(days=2)) and date.weekday() == 3:
+        return True
+    return False
+
+# ===========================
+# Execução Principal
+# ===========================
+
+if __name__ == "__main__":
+    # Lista de produtos a serem processados
+    produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
+    for produto in produtos_especificos:
+        logger.info(f"Iniciando processamento de dados para o produto {produto}")
+        raw_df = extract_raw_data(produto)
+        if raw_df.empty:
+            logger.warning(f"Sem dados brutos para o produto {produto}. Pulando.")
+            continue
+        cleaned_df = clean_data(raw_df)
+        save_transaction_data(cleaned_df, produto, DATA_DIR)
+        aggregated_df = aggregate_data(cleaned_df, produto)
+        feature_df = feature_engineering_final(aggregated_df)
+        save_daily_data(feature_df, produto, DATA_DIR)
+        logger.info(f"Processamento de dados concluído para o produto {produto}")

@@ -4,12 +4,13 @@ import pandas as pd
 import numpy as np
 import os
 import joblib
-from tensorflow.keras.models import load_model # type: ignore
+from tensorflow.keras.models import load_model  # type: ignore
 from src.utils.logging_config import get_logger
 from workalendar.america import Brazil
 from datetime import timedelta
 from src.models.train_model import LabelEncoderSafe, N_STEPS  # Certifique-se de importar N_STEPS
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 logger = get_logger(__name__)
 
@@ -74,6 +75,10 @@ def predict_unit_price(produto_especifico):
     scaler_y = joblib.load(scaler_y_path)
     label_encoders = joblib.load(encoders_path)
 
+    # Verificar propriedades do scaler_y
+    logger.debug(f"Scaler_Y Mean: {getattr(scaler_y, 'center_', 'Não disponível')}")
+    logger.debug(f"Scaler_Y Scale: {scaler_y.scale_}")
+
     # Preparar dados futuros para previsão
     future_dates = pd.date_range(start=FUTURE_START_DATE, end=FUTURE_END_DATE, freq='D')
     df_future = pd.DataFrame({'Data': future_dates})
@@ -90,26 +95,65 @@ def predict_unit_price(produto_especifico):
         'CodigoFornecedor', 'CodigoKitPrincipal', 'ValorCusto'
     ]
 
+    # Verificar se todas as features estão presentes
+    missing_features = [col for col in features if col not in df_future.columns]
+    if missing_features:
+        logger.error(f"As seguintes features estão faltando nos dados futuros: {missing_features}")
+        return
+
     X_future = df_future[features]
 
     # Escalar os dados
-    X_future_scaled = scaler_X.transform(X_future)
+    try:
+        X_future_scaled = scaler_X.transform(X_future)
+    except Exception as e:
+        logger.error(f"Erro ao escalar os dados futuros: {e}")
+        return
 
-    # Fazer previsões
+    # Carregar os últimos N_STEPS de dados históricos para iniciar as previsões
+    df_historico = load_transaction_data(produto_especifico)
+    df_historico = df_historico.sort_values('DataHora')
+    df_historico_features = df_historico[features].tail(N_STEPS)
+    if len(df_historico_features) < N_STEPS:
+        logger.error(f'Dados históricos insuficientes para criar uma sequência de {N_STEPS} passos de tempo.')
+        return
+
+    X_historico_scaled = scaler_X.transform(df_historico_features)
+    X_input_list = list(X_historico_scaled)
+
     predictions_scaled = []
-    X_input_list = list(X_future_scaled[:N_STEPS])
 
-    for i in range(N_STEPS, len(X_future_scaled)):
+    for i in range(len(X_future_scaled)):
+        if len(X_input_list) < N_STEPS:
+            logger.error(f'Dados insuficientes para criar uma sequência de {N_STEPS} passos de tempo.')
+            break
+
+        # Criar sequência de entrada
         X_input_seq = np.array(X_input_list[-N_STEPS:]).reshape(1, N_STEPS, -1)
+
+        # Fazer previsão
         y_pred_scaled = model.predict(X_input_seq)
         predictions_scaled.append(y_pred_scaled[0][0])
+
+        # Log da previsão escalada
+        logger.debug(f"Previsão escalada (y_pred_scaled): {y_pred_scaled[0][0]}")
+
+        # Atualizar a lista de entrada com a nova previsão escalada
         X_input_list.append(X_future_scaled[i])
 
-    # Converter previsões para a escala original
-    predictions = scaler_y.inverse_transform(np.array(predictions_scaled).reshape(-1, 1)).flatten()
+    # Converter previsões para a escala original e aplicar a transformação inversa
+    try:
+        predictions = scaler_y.inverse_transform(np.array(predictions_scaled).reshape(-1, 1)).flatten()
+        predictions = np.expm1(predictions)  # Inverso de log1p
+    except Exception as e:
+        logger.error(f"Erro ao inverter a escala das previsões: {e}")
+        return
+
+    # Log das previsões invertidas
+    logger.debug(f"Previsões invertidas (ValorUnitarioPrevisto): {predictions}")
 
     # Preparar DataFrame de previsões
-    df_predictions = df_future.iloc[N_STEPS:].copy()
+    df_predictions = df_future.iloc[:len(predictions)].copy()
     df_predictions['ValorUnitarioPrevisto'] = predictions
 
     # Salvar previsões
@@ -149,6 +193,10 @@ def predict_quantity_sold(produto_especifico):
     scaler_y = joblib.load(scaler_y_path)
     label_encoders = joblib.load(encoders_path)
 
+    # Verificar propriedades do scaler_y
+    logger.debug(f"Scaler_Y Mean: {getattr(scaler_y, 'center_', 'Não disponível')}")
+    logger.debug(f"Scaler_Y Scale: {scaler_y.scale_}")
+
     # Preparar dados futuros para previsão
     future_dates = pd.date_range(start=FUTURE_START_DATE, end=FUTURE_END_DATE, freq='D')
     df_future = pd.DataFrame({'Data': future_dates})
@@ -156,13 +204,6 @@ def predict_quantity_sold(produto_especifico):
 
     # Adicionar características futuras
     df_future = add_future_features(df_future, df, label_encoders, nivel='diario')
-
-    # Criar features lag iniciais a partir dos dados históricos
-    df = create_lag_features(df, N_STEPS)
-    last_lags = df[['QuantidadeLiquida_Lag1', 'QuantidadeLiquida_Lag2', 'QuantidadeLiquida_Lag3']].iloc[-1].values.tolist()
-    df_future['QuantidadeLiquida_Lag1'] = last_lags[0]
-    df_future['QuantidadeLiquida_Lag2'] = last_lags[1]
-    df_future['QuantidadeLiquida_Lag3'] = last_lags[2]
 
     # Selecionar features
     features = [
@@ -173,32 +214,73 @@ def predict_quantity_sold(produto_especifico):
         'CodigoFornecedor', 'CodigoKitPrincipal'
     ]
 
+    # Verificar se todas as features estão presentes
+    missing_features = [col for col in features if col not in df_future.columns]
+    if missing_features:
+        logger.error(f"As seguintes features estão faltando nos dados futuros: {missing_features}")
+        return
+
     X_future = df_future[features]
 
     # Escalar os dados
-    X_future_scaled = scaler_X.transform(X_future)
+    try:
+        X_future_scaled = scaler_X.transform(X_future)
+    except Exception as e:
+        logger.error(f"Erro ao escalar os dados futuros: {e}")
+        return
 
-    # Fazer previsões
+    # Carregar os últimos N_STEPS de dados históricos para iniciar as previsões
+    df_historico = load_daily_data(produto_especifico)
+    df_historico = df_historico.sort_values('Data').tail(N_STEPS)
+    if len(df_historico) < N_STEPS:
+        logger.error(f'Dados históricos insuficientes para criar uma sequência de {N_STEPS} passos de tempo.')
+        return
+
+    X_historico = df_historico[features]
+    X_historico_scaled = scaler_X.transform(X_historico)
+    X_input_list = list(X_historico_scaled)
+
     predictions_scaled = []
-    X_input_list = list(X_future_scaled[:N_STEPS])
 
-    for i in range(N_STEPS, len(X_future_scaled)):
+    for i in range(len(X_future_scaled)):
+        if len(X_input_list) < N_STEPS:
+            logger.error(f'Dados insuficientes para criar uma sequência de {N_STEPS} passos de tempo.')
+            break
+
+        # Criar sequência de entrada
         X_input_seq = np.array(X_input_list[-N_STEPS:]).reshape(1, N_STEPS, -1)
+
+        # Fazer previsão
         y_pred_scaled = model.predict(X_input_seq)
         predictions_scaled.append(y_pred_scaled[0][0])
 
-        # Atualizar features lag
-        next_input = X_future_scaled[i]
-        next_input[features.index('QuantidadeLiquida_Lag1')] = y_pred_scaled[0][0]
-        next_input[features.index('QuantidadeLiquida_Lag2')] = X_input_list[-1][features.index('QuantidadeLiquida_Lag1')]
-        next_input[features.index('QuantidadeLiquida_Lag3')] = X_input_list[-1][features.index('QuantidadeLiquida_Lag2')]
-        X_input_list.append(next_input)
+        # Log da previsão escalada
+        logger.debug(f"Previsão escalada (y_pred_scaled): {y_pred_scaled[0][0]}")
+
+        # Atualizar as features lag com a nova previsão escalada
+        new_lag1 = y_pred_scaled[0][0]
+        new_lag2 = X_input_list[-1][features.index('QuantidadeLiquida_Lag1')]
+        new_lag3 = X_input_list[-1][features.index('QuantidadeLiquida_Lag2')]
+
+        logger.debug(f"Atualizando lags com: QuantidadeLiquida_Lag1={new_lag1}, QuantidadeLiquida_Lag2={new_lag2}, QuantidadeLiquida_Lag3={new_lag3}")
+
+        # Atualizar as features lag nas previsões futuras
+        X_future_scaled[i][features.index('QuantidadeLiquida_Lag1')] = new_lag1
+        X_future_scaled[i][features.index('QuantidadeLiquida_Lag2')] = new_lag2
+        X_future_scaled[i][features.index('QuantidadeLiquida_Lag3')] = new_lag3
+
+        # Adicionar a nova entrada para a sequência
+        X_input_list.append(X_future_scaled[i])
 
     # Converter previsões para a escala original
-    predictions = scaler_y.inverse_transform(np.array(predictions_scaled).reshape(-1, 1)).flatten()
+    try:
+        predictions = scaler_y.inverse_transform(np.array(predictions_scaled).reshape(-1, 1)).flatten()
+    except Exception as e:
+        logger.error(f"Erro ao inverter a escala das previsões: {e}")
+        return
 
     # Preparar DataFrame de previsões
-    df_predictions = df_future.iloc[N_STEPS:].copy()
+    df_predictions = df_future.iloc[:len(predictions)].copy()
     df_predictions['QuantidadePrevista'] = predictions
 
     # Salvar previsões
@@ -246,6 +328,7 @@ def add_future_features(df_future, df_historico, label_encoders, nivel='transaca
     df_future['VesperaDeFeriado'] = df_future['Data'].apply(lambda x: 1 if is_feriado_prolongado(x, cal) else 0)
 
     # Definir 'EmPromocao' conforme planejamento de promoções
+    # Aqui você pode ajustar a lógica de acordo com o planejamento real de promoções
     df_future['EmPromocao'] = df_future['Data'].apply(lambda x: 1 if x.day <= 14 else 0)
 
     # Features categóricas
@@ -276,12 +359,6 @@ def add_future_features(df_future, df_historico, label_encoders, nivel='transaca
     df_future.fillna(0, inplace=True)
     return df_future
 
-def create_lag_features(df, n_lags):
-    for lag in range(1, 4):
-        df[f'QuantidadeLiquida_Lag{lag}'] = df['QuantidadeLiquida'].shift(lag)
-    df.fillna(0, inplace=True)
-    return df
-
 def is_feriado_prolongado(date, calendar):
     if calendar.is_holiday(date + timedelta(days=1)):
         return True
@@ -296,7 +373,7 @@ def is_feriado_prolongado(date, calendar):
 # ===========================
 
 if __name__ == "__main__":
-    # Lista de produtos a serem processados
-    produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
-    for produto in produtos_especificos:
-        predict_future_sales(produto)
+    # Chamada principal para iniciar as previsões
+    # Exemplo: produto_especifico = 26173
+    produto_especifico = 26173  # Substitua pelo código do produto desejado
+    predict_future_sales(produto_especifico)

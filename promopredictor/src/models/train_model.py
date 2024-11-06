@@ -1,18 +1,18 @@
+# src/models/train_model.py
+
 import pandas as pd
 import os
 import numpy as np
 import joblib
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.models import Sequential # type: ignore
-from tensorflow.keras.layers import LSTM, Dense, Input, Dropout # type: ignore
-from tensorflow.keras.callbacks import EarlyStopping # type: ignore
-from tensorflow.keras.optimizers import Adam # type: ignore
+from sklearn.preprocessing import RobustScaler, LabelEncoder
+from tensorflow.keras.models import Sequential  # type: ignore
+from tensorflow.keras.layers import LSTM, Dense, Input, Dropout  # type: ignore
+from tensorflow.keras.callbacks import EarlyStopping  # type: ignore
+from tensorflow.keras.optimizers import Adam  # type: ignore
 from src.utils.logging_config import get_logger
 import matplotlib.pyplot as plt
 import keras_tuner as kt  # Importando o Keras Tuner
-# Adicionamos o import do TensorFlow para configurar a GPU
-import tensorflow as tf
+import seaborn as sns  # Para visualizações
 
 logger = get_logger(__name__)
 
@@ -40,28 +40,6 @@ DATA_DIR = os.path.join(BASE_DIR, 'promopredictor', 'data')
 os.makedirs(MODELS_DIR, exist_ok=True)
 PLOTS_DIR = os.path.join(BASE_DIR, 'promopredictor', 'plots')
 os.makedirs(PLOTS_DIR, exist_ok=True)
-
-# ===========================
-# Configurações de GPU
-# ===========================
-
-def adjust_gpu_memory():
-    """
-    Ajusta o uso de memória da GPU para otimizar o treinamento.
-    """
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        try:
-            # Definir limite de memória manualmente
-            for gpu in gpus:
-                tf.config.experimental.set_virtual_device_configuration(
-                    gpu,
-                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4000)]
-                )
-            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-            logger.info(f"{len(gpus)} GPUs físicas, {len(logical_gpus)} GPUs lógicas configuradas.")
-        except RuntimeError as e:
-            logger.error(f"Erro ao configurar a GPU: {e}")
 
 # ===========================
 # Classe Personalizada para LabelEncoder com Tratamento de Rótulos Desconhecidos
@@ -111,9 +89,20 @@ def train_and_evaluate_models(produto_especifico):
 def train_unit_price_model(df, produto_especifico):
     logger.info(f"Treinando modelo de preço unitário para o produto {produto_especifico}")
 
-    # Convert 'DataHora' to datetime and sort
+    # Convert 'DataHora' para datetime e ordenar
     df['DataHora'] = pd.to_datetime(df['DataHora'])
     df = df.sort_values('DataHora')
+
+    # Tratar valores negativos em 'ValorUnitario'
+    if (df['ValorUnitario'] < 0).any():
+        logger.warning('Encontrados valores negativos em ValorUnitario. Ajustando para 0.')
+        df.loc[df['ValorUnitario'] < 0, 'ValorUnitario'] = 0
+
+    # Transformar a variável alvo com logaritmo
+    df['ValorUnitario_Log'] = np.log1p(df['ValorUnitario'])
+
+    # Plotar distribuição de ValorUnitario
+    plot_valor_unitario_distribution(df, produto_especifico)
 
     # Dividir em treinamento e teste
     df_train = df[df['DataHora'] < '2023-01-01'].copy()
@@ -142,7 +131,6 @@ def train_unit_price_model(df, produto_especifico):
 
     # Definir o modelo usando Keras Tuner
     def build_unit_price_model(hp):
-
         model = Sequential()
         model.add(Input(shape=(N_STEPS, X_train_seq.shape[2])))
 
@@ -166,7 +154,7 @@ def train_unit_price_model(df, produto_especifico):
     tuner = kt.RandomSearch(
         build_unit_price_model,
         objective='val_loss',
-        max_trials=100,  # Ajuste conforme necessário
+        max_trials=20,  # Ajuste conforme necessário
         executions_per_trial=1,
         directory='kt_tuner',
         project_name=f'unit_price_model_{produto_especifico}'
@@ -187,9 +175,6 @@ def train_unit_price_model(df, produto_especifico):
     # Obter o melhor modelo
     best_model = tuner.get_best_models(num_models=1)[0]
 
-    # Não é possível obter o histórico diretamente ao usar o Keras Tuner
-    # Portanto, não plotaremos o histórico de treinamento neste caso
-
     # Salvar o scaler das features
     scaler_X_path = os.path.join(MODELS_DIR, f'scaler_X_unit_price_{produto_especifico}.pkl')
     joblib.dump(scaler_X, scaler_X_path)
@@ -203,7 +188,7 @@ def train_unit_price_model(df, produto_especifico):
     joblib.dump(label_encoders, encoders_path)
 
     # Salvar o modelo
-    model_path = os.path.join(MODELS_DIR, f'model_unit_price_{produto_especifico}.h5')
+    model_path = os.path.join(MODELS_DIR, f'model_unit_price_{produto_especifico}.keras')
     best_model.save(model_path)
 
     logger.info(f'Modelo de preço unitário para o produto {produto_especifico} salvo com sucesso.')
@@ -216,7 +201,7 @@ def prepare_unit_price_data(df, scaler_X=None, scaler_y=None, label_encoders=Non
         'CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante',
         'CodigoFornecedor', 'CodigoKitPrincipal', 'ValorCusto'
     ]
-    target = 'ValorUnitario'
+    target = 'ValorUnitario_Log'
 
     missing_features = [col for col in features if col not in df.columns]
     if missing_features:
@@ -224,10 +209,10 @@ def prepare_unit_price_data(df, scaler_X=None, scaler_y=None, label_encoders=Non
         return None, None, None, None, None
 
     # Preencher NaNs nas features
-    df[features] = df[features].fillna(0)
+    df[features].fillna(0, inplace=True)
 
     # Preencher NaNs no target
-    df[target] = df[target].fillna(0)
+    df[target].fillna(0, inplace=True)
 
     # Codificar variáveis categóricas
     categorical_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante',
@@ -260,18 +245,19 @@ def prepare_unit_price_data(df, scaler_X=None, scaler_y=None, label_encoders=Non
 
     # Escalar os dados
     if scaler_X is None:
-        scaler_X = StandardScaler()
+        scaler_X = RobustScaler()
         X_scaled = scaler_X.fit_transform(X)
     else:
         X_scaled = scaler_X.transform(X)
 
     # Escalar a variável alvo
     if scaler_y is None:
-        scaler_y = StandardScaler()
+        scaler_y = RobustScaler()
         y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).flatten()
     else:
         y_scaled = scaler_y.transform(y.reshape(-1, 1)).flatten()
 
+    logger.debug(f"prepare_unit_price_data - X_scaled shape: {X_scaled.shape}, y_scaled shape: {y_scaled.shape}")
     return X_scaled, y_scaled, scaler_X, scaler_y, label_encoders
 
 # ===========================
@@ -281,12 +267,14 @@ def prepare_unit_price_data(df, scaler_X=None, scaler_y=None, label_encoders=Non
 def train_quantity_model(df, produto_especifico):
     logger.info(f"Treinando modelo de quantidade vendida para o produto {produto_especifico}")
 
-    # Convert 'Data' to datetime and sort
+    # Convert 'Data' para datetime e ordenar
     df['Data'] = pd.to_datetime(df['Data'])
     df = df.sort_values('Data')
 
-    # Criar features lag
-    df = create_lag_features(df, N_STEPS)
+    # Verificar e ajustar valores negativos em 'QuantidadeLiquida'
+    if (df['QuantidadeLiquida'] < 0).any():
+        logger.warning('Encontrados valores negativos em QuantidadeLiquida. Ajustando para 0.')
+        df.loc[df['QuantidadeLiquida'] < 0, 'QuantidadeLiquida'] = 0
 
     # Dividir em treinamento e teste
     df_train = df[df['Data'] < '2023-01-01'].copy()
@@ -315,7 +303,6 @@ def train_quantity_model(df, produto_especifico):
 
     # Definir o modelo usando Keras Tuner
     def build_quantity_model(hp):
-
         model = Sequential()
         model.add(Input(shape=(N_STEPS, X_train_seq.shape[2])))
 
@@ -339,7 +326,7 @@ def train_quantity_model(df, produto_especifico):
     tuner = kt.RandomSearch(
         build_quantity_model,
         objective='val_loss',
-        max_trials=100,  # Ajuste conforme necessário
+        max_trials=20,  # Ajuste conforme necessário
         executions_per_trial=1,
         directory='kt_tuner',
         project_name=f'quantity_model_{produto_especifico}'
@@ -360,9 +347,6 @@ def train_quantity_model(df, produto_especifico):
     # Obter o melhor modelo
     best_model = tuner.get_best_models(num_models=1)[0]
 
-    # Não é possível obter o histórico diretamente ao usar o Keras Tuner
-    # Portanto, não plotaremos o histórico de treinamento neste caso
-
     # Salvar o scaler das features
     scaler_X_path = os.path.join(MODELS_DIR, f'scaler_X_quantity_{produto_especifico}.pkl')
     joblib.dump(scaler_X, scaler_X_path)
@@ -376,7 +360,7 @@ def train_quantity_model(df, produto_especifico):
     joblib.dump(label_encoders, encoders_path)
 
     # Salvar o modelo
-    model_path = os.path.join(MODELS_DIR, f'model_quantity_{produto_especifico}.h5')
+    model_path = os.path.join(MODELS_DIR, f'model_quantity_{produto_especifico}.keras')
     best_model.save(model_path)
 
     logger.info(f'Modelo de quantidade vendida para o produto {produto_especifico} salvo com sucesso.')
@@ -400,10 +384,10 @@ def prepare_quantity_data(df, scaler_X=None, scaler_y=None, label_encoders=None)
         return None, None, None, None, None
 
     # Preencher NaNs nas features
-    df[features] = df[features].fillna(0)
+    df[features].fillna(0, inplace=True)
 
     # Preencher NaNs no target
-    df[target] = df[target].fillna(0)
+    df[target].fillna(0, inplace=True)
 
     # Codificar variáveis categóricas
     categorical_cols = ['CodigoSecao', 'CodigoGrupo', 'CodigoSubGrupo', 'CodigoFabricante',
@@ -436,23 +420,20 @@ def prepare_quantity_data(df, scaler_X=None, scaler_y=None, label_encoders=None)
 
     # Escalar os dados
     if scaler_X is None:
-        scaler_X = StandardScaler()
+        scaler_X = RobustScaler()
         X_scaled = scaler_X.fit_transform(X)
     else:
         X_scaled = scaler_X.transform(X)
 
     # Escalar a variável alvo
     if scaler_y is None:
-        scaler_y = StandardScaler()
+        scaler_y = RobustScaler()
         y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).flatten()
     else:
         y_scaled = scaler_y.transform(y.reshape(-1, 1)).flatten()
 
+    logger.debug(f"prepare_quantity_data - X_scaled shape: {X_scaled.shape}, y_scaled shape: {y_scaled.shape}")
     return X_scaled, y_scaled, scaler_X, scaler_y, label_encoders
-
-# ===========================
-# Funções Auxiliares Comuns
-# ===========================
 
 def load_transaction_data(produto_especifico):
     """
@@ -498,28 +479,21 @@ def create_lag_features(df, n_lags):
     """
     Cria features lag da variável alvo.
     """
-    for lag in range(1, 4):  # Criar 3 lags
-        df[f'QuantidadeLiquida_Lag{lag}'] = df['QuantidadeLiquida'].shift(lag)
-    df.dropna(inplace=True)
+    for lag in range(1, n_lags + 1):
+        df.loc[:, f'QuantidadeLiquida_Lag{lag}'] = df['QuantidadeLiquida'].shift(lag)
+    df.fillna(0, inplace=True)
     return df
 
-def plot_training_history(history, produto_especifico, target_name):
-    """
-    Plota e salva as curvas de perda de treinamento e validação.
-    """
-    plt.figure(figsize=(10, 6))
-    plt.plot(history.history['loss'], label='Perda de Treinamento')
-    plt.plot(history.history['val_loss'], label='Perda de Validação')
-    plt.title(f'Histórico de Treinamento - Produto {produto_especifico} - {target_name}')
-    plt.xlabel('Épocas')
-    plt.ylabel('Perda')
-    plt.legend()
-    plt.grid(True)
-    plot_path = os.path.join(PLOTS_DIR, f'training_history_{produto_especifico}_{target_name}.png')
+def plot_valor_unitario_distribution(df, produto_especifico):
+    plt.figure(figsize=(10,6))
+    sns.histplot(df['ValorUnitario'], bins=50, kde=True)
+    plt.title(f'Distribuição de Valor Unitário - Produto {produto_especifico}')
+    plt.xlabel('Valor Unitário')
+    plt.ylabel('Frequência')
+    plot_path = os.path.join(PLOTS_DIR, f'distribution_valor_unitario_{produto_especifico}.png')
     plt.savefig(plot_path)
     plt.close()
-    logger.info(f'Gráfico de histórico de treinamento salvo em {plot_path}')
-
+    logger.info(f"Histograma de Valor Unitário salvo em {plot_path}")
 
 # ===========================
 # Execução Principal
@@ -530,4 +504,3 @@ if __name__ == "__main__":
     produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
     for produto in produtos_especificos:
         train_and_evaluate_models(produto)
-

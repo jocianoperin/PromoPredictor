@@ -1,6 +1,6 @@
 # promopredictor/main.py
 
-from src.models.train_model import train_and_evaluate_models, adjust_gpu_memory
+from src.models.train_model import train_and_evaluate_models
 from src.models.predict_sales import predict_future_sales
 from src.visualizations.compare_predictions import compare_predictions
 from src.utils.logging_config import get_logger
@@ -9,10 +9,11 @@ from src.services.data_processing import (
     clean_data,
     save_transaction_data,
     aggregate_data,
-    feature_engineering,
+    feature_engineering_final,  # Importando feature_engineering_final
     save_daily_data,
     feature_engineering_transacao,
 )
+from src.services.adjust_gpu_memory import adjust_gpu_memory  # Importando de services
 import os
 
 logger = get_logger(__name__)
@@ -20,11 +21,16 @@ logger = get_logger(__name__)
 def main():
     logger.info("==== Início do processo ====")
     try:
+        # Ajustar a memória da GPU antes de iniciar o processamento
+        logger.info("Ajustando a memória da GPU para otimizar o treinamento...")
+        adjust_gpu_memory()
+        logger.info("Memória da GPU otimizada com sucesso.")
+
         # Lista de produtos para processar
         produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
 
         for produto_especifico in produtos_especificos:
-            """logger.info(f"Processando o produto {produto_especifico}")
+            logger.info(f"Processando o produto {produto_especifico}")
 
             # Etapa 1: Extração e Processamento de Dados
             logger.info("1. Extraindo e processando dados...")
@@ -44,7 +50,7 @@ def main():
 
                 # Criar dados agregados por dia
                 df_aggregated = aggregate_data(df_cleaned, produto_especifico)
-                df_processed = feature_engineering(df_aggregated)
+                df_processed = feature_engineering_final(df_aggregated)  # Chamar feature_engineering_final
 
                 # Salvar dados agregados por dia
                 save_daily_data(df_processed, produto_especifico, data_dir)
@@ -60,12 +66,7 @@ def main():
                 logger.info(df_processed.head())
             else:
                 logger.error("Não foi possível extrair os dados. Pulando para o próximo produto.")
-                continue"""
-            
-            # Chamar a função para ajustar a memória da GPU
-            logger.info("Aumentando memória da GPU para operar em capacidade máxima.")
-            adjust_gpu_memory()
-            logger.info("Memória da GPU otimizada com sucesso.")
+                continue
 
             # Etapa 2: Treinamento e Salvamento dos Modelos
             logger.info("2. Treinando e salvando os modelos para o produto específico...")
