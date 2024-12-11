@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 
 # Dataset too big
-#data/
+data/
 dataset/
 datasetOLD/
 datasetclean/
@@ -178,6 +178,7 @@ promopredictor.rar
 #Modelos treinados
 trained_models/
 kt_tuner*/
+ktuner_dir/
 
 #Outputs
 outputs/
