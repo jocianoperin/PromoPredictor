@@ -1,92 +1,76 @@
-# promopredictor/main.py
-
-from src.models.train_model import train_and_evaluate_models
-from src.models.predict_sales import predict_future_sales
-from src.visualizations.compare_predictions import compare_predictions
-from src.utils.logging_config import get_logger
-from src.services.data_processing import (
-    extract_raw_data,
-    clean_data,
-    save_transaction_data,
-    aggregate_data,
-    feature_engineering_final,  # Importando feature_engineering_final
-    save_daily_data,
-    feature_engineering_transacao,
-)
-from src.services.adjust_gpu_memory import adjust_gpu_memory  # Importando de services
 import os
+from pathlib import Path
+from src.data_processing.process_raw_data import create_db_connection, extract_raw_data, save_raw_data
+from src.data_processing.clean_data import process_clean_data
+from src.models.train_model import train_model
+from src.models.predict_model import predict
+from src.visualizations.generate_reports import generate_reports
+from src.utils.logging_config import get_logger
 
+# Configuração de logging
 logger = get_logger(__name__)
 
+# Definir o caminho base para os dados
+BASE_DATA_DIR = Path(__file__).parent / "data"
+
 def main():
-    logger.info("==== Início do processo ====")
-    try:
-        # Ajustar a memória da GPU antes de iniciar o processamento
-        logger.info("Ajustando a memória da GPU para otimizar o treinamento...")
-        adjust_gpu_memory()
-        logger.info("Memória da GPU otimizada com sucesso.")
+    """
+    Orquestra o pipeline completo:
+    1. Processa os dados (extração, limpeza e engenharia de recursos).
+    2. Treina o modelo usando os dados preparados.
+    3. Faz predições para o período especificado.
+    4. Gera relatórios e gráficos com os resultados.
+    """
+    logger.info("Iniciando o pipeline de processamento e análise.")
 
-        # Lista de produtos para processar
-        produtos_especificos = [26173]  # Substitua pelos códigos dos produtos desejados
+    # Lista de códigos de produtos para processamento
+    produtos = [26173]  # Substitua por uma lista de produtos reais
 
-        for produto_especifico in produtos_especificos:
-            logger.info(f"Processando o produto {produto_especifico}")
+    # Criar diretórios base, se não existirem
+    os.makedirs(BASE_DATA_DIR / "raw", exist_ok=True)
+    os.makedirs(BASE_DATA_DIR / "cleaned", exist_ok=True)
+    os.makedirs(BASE_DATA_DIR / "models", exist_ok=True)
+    os.makedirs(BASE_DATA_DIR / "predictions", exist_ok=True)
+    os.makedirs(BASE_DATA_DIR / "reports", exist_ok=True)
 
-            # Etapa 1: Extração e Processamento de Dados
-            logger.info("1. Extraindo e processando dados...")
-            df_raw = extract_raw_data(produto_especifico)
+    # Etapa 1: Processamento de Dados
+    connection = create_db_connection()
+    if connection:
+        try:
+            for produto in produtos:
+                logger.info(f"Processando o produto {produto}.")
 
-            if not df_raw.empty:
-                df_cleaned = clean_data(df_raw)
+                # Extração de dados brutos
+                df_raw = extract_raw_data(connection, produto)
 
-                # Criar o diretório 'data' dentro de 'promopredictor' se não existir
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                data_dir = os.path.join(base_dir, 'data')
-                os.makedirs(data_dir, exist_ok=True)
+                # Salvamento de dados brutos
+                if not df_raw.empty:
+                    save_raw_data(df_raw, produto, BASE_DATA_DIR / "raw")
+                else:
+                    logger.warning(f"Nenhum dado encontrado para o produto {produto}.")
+                    continue  # Pula para o próximo produto se não houver dados
 
-                # Aplicar feature_engineering_transacao
-                df_transacao = feature_engineering_transacao(df_cleaned)
-                save_transaction_data(df_transacao, produto_especifico, data_dir)
+                # Limpeza e engenharia de recursos
+                process_clean_data(produto, BASE_DATA_DIR)
+        finally:
+            connection.dispose()
+    else:
+        logger.error("Falha ao estabelecer conexão com o banco de dados.")
+        return
 
-                # Criar dados agregados por dia
-                df_aggregated = aggregate_data(df_cleaned, produto_especifico)
-                df_processed = feature_engineering_final(df_aggregated)  # Chamar feature_engineering_final
+    # Etapa 2: Treinamento do Modelo
+    logger.info("Iniciando o treinamento do modelo.")
+    train_model()
 
-                # Salvar dados agregados por dia
-                save_daily_data(df_processed, produto_especifico, data_dir)
+    # Etapa 3: Predição
+    logger.info("Iniciando a geração de predições.")
+    predict()
 
-                logger.info(f'Dados processados salvos para o produto {produto_especifico}.')
+    # Etapa 4: Geração de Relatórios
+    logger.info("Gerando relatórios e gráficos.")
+    generate_reports()
 
-                # Verificar se há valores nulos
-                logger.info("Valores nulos por coluna:")
-                logger.info(df_processed.isnull().sum())
-
-                # Exibir as primeiras linhas do DataFrame com as colunas
-                logger.info("Primeiras linhas do DataFrame:")
-                logger.info(df_processed.head())
-            else:
-                logger.error("Não foi possível extrair os dados. Pulando para o próximo produto.")
-                continue
-
-            # Etapa 2: Treinamento e Salvamento dos Modelos
-            logger.info("2. Treinando e salvando os modelos para o produto específico...")
-            train_and_evaluate_models(produto_especifico)
-            logger.info("Modelos treinados e salvos com sucesso.")
-
-            # Etapa 3: Previsão e Inserção dos Dados Previstos
-            logger.info("3. Realizando previsões e inserindo dados previstos...")
-            predict_future_sales(produto_especifico)
-            logger.info("Previsões realizadas e salvas com sucesso.")
-
-            # Etapa 4: Comparação das Previsões com os Valores Reais
-            logger.info("4. Comparando previsões com valores reais e gerando gráfico...")
-            compare_predictions(produto_especifico)
-            logger.info("Comparação concluída e gráfico gerado com sucesso.")
-
-        logger.info("==== Processo finalizado com sucesso para todos os produtos! ====")
-
-    except Exception as e:
-        logger.error(f"Erro durante a execução do pipeline: {e}")
+    logger.info("Pipeline completo concluído com sucesso.")
 
 if __name__ == "__main__":
     main()

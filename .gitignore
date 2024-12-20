@@ -179,6 +179,7 @@ promopredictor.rar
 trained_models/
 kt_tuner*/
 ktuner_dir/
+auto_model/
 
 #Outputs
 outputs/
