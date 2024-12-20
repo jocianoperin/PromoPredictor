@@ -83,7 +83,8 @@ def feature_engineering(df):
     # Quantidade líquida
     if 'Quantidade' in df.columns and 'QuantDevolvida' in df.columns:
         df['QuantidadeLiquida'] = df['Quantidade'] - df['QuantDevolvida']
-        df['QuantidadeLiquida'].fillna(0, inplace=True)
+        df['QuantidadeLiquida'] = df['QuantidadeLiquida'].fillna(0)
+
     else:
         logger.warning("Colunas 'Quantidade' ou 'QuantDevolvida' ausentes. 'QuantidadeLiquida' será preenchida com 0.")
         df['QuantidadeLiquida'] = 0

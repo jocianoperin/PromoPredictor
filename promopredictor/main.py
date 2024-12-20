@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 # Definir o caminho base para os dados
 BASE_DATA_DIR = Path(__file__).parent / "data"
 
-def fetch_top_products(connection, limit=100):
+def fetch_top_products(connection, limit=1):
     """
     Seleciona os produtos mais vendidos de categorias distintas.
 
@@ -27,7 +27,7 @@ def fetch_top_products(connection, limit=100):
         list: Lista de códigos de produtos selecionados.
     """
     query = """
-    SELECT DISTINCT CodigoProduto
+    SELECT CodigoProduto
     FROM produtosmaisvendidos
     WHERE CodigoSecao IS NOT NULL
     ORDER BY QuantidadeTotalVendida DESC
@@ -59,7 +59,7 @@ def main():
     connection = create_db_connection()
     if connection:
         try:
-            produtos = fetch_top_products(connection, limit=100)
+            produtos = fetch_top_products(connection, limit=1)
         finally:
             connection.dispose()
     else:
