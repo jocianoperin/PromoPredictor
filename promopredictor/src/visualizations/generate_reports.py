@@ -7,38 +7,51 @@ logger = get_logger(__name__)
 
 BASE_DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
-def generate_reports():
+
+def generate_reports(model_type):
     """
-    Gera gráficos comparando valores reais e previstos e salva como imagens.
+    Gera gráficos comparando valores reais e previstos para o modelo especificado.
+
+    Parâmetros:
+        model_type (str): Tipo do modelo ('quantity' ou 'unit_price').
     """
-    # Caminho do arquivo de predições
-    file_path = BASE_DATA_DIR / "predictions/produto_26173_predictions.csv"
+    file_path = BASE_DATA_DIR / f"predictions/produto_26173_{model_type}_predictions.csv"
     logger.info(f"Lendo dados de predições de {file_path}.")
-    
-    # Ler os dados de predição
+
+    if not file_path.exists():
+        logger.error(f"Arquivo de predições não encontrado: {file_path}")
+        return
+
     df = pd.read_csv(file_path)
-    
-    # Criar o diretório para salvar os relatórios, se necessário
-    reports_dir = BASE_DATA_DIR / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    # Determinar as colunas de comparação
+    if model_type == 'quantity':
+        real_column = 'Quantidade'
+        predicted_column = 'Predicted_Quantidade'
+        ylabel = 'Quantidade Vendida'
+    elif model_type == 'unit_price':
+        real_column = 'ValorUnitarioMedio'
+        predicted_column = 'Predicted_ValorUnitarioMedio'
+        ylabel = 'Valor Unitário Médio'
+    else:
+        logger.error(f"Tipo de modelo desconhecido: {model_type}")
+        raise ValueError(f"Tipo de modelo desconhecido: {model_type}")
 
     # Comparação entre valores reais e preditos
     plt.figure(figsize=(12, 6))
-    plt.plot(df['Data'], df['Quantidade'], label='Quantidade Real', marker='o')
-    plt.plot(df['Data'], df['Predicted_Quantidade'], label='Quantidade Predita', marker='x')
+    plt.plot(df['Data'], df[real_column], label=f'{ylabel} Real', marker='o')
+    plt.plot(df['Data'], df[predicted_column], label=f'{ylabel} Predito', marker='x')
     plt.legend()
-    plt.title('Comparação de Valores Reais e Preditos')
+    plt.title(f'Comparação de Valores Reais e Preditos ({ylabel})')
     plt.xlabel('Data')
-    plt.ylabel('Quantidade')
+    plt.ylabel(ylabel)
     plt.grid(True)
 
     # Salvar gráfico
-    output_path = reports_dir / "comparison_chart.png"
+    output_path = BASE_DATA_DIR / f"reports/comparison_chart_{model_type}.png"
     plt.savefig(output_path)
     logger.info(f"Gráfico salvo em {output_path}.")
-    
-    # Fechar a figura para evitar consumo excessivo de memória em execuções repetidas
     plt.close()
 
 if __name__ == "__main__":
-    generate_reports()
+    generate_reports('quantity')  # Ou use 'unit_price' para o relatório de valor unitário médio
