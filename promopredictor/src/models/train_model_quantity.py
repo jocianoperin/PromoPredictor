@@ -70,7 +70,8 @@ def train_model():
 
     # Salvar o modelo
     model_path = BASE_DATA_DIR / "models/structured_data_model"
-    model.export_model().save(model_path, save_format="tf")
+    model.export_model().save(f"{model_path}.keras")
+
     logger.info(f"Modelo salvo em {model_path}.")
 
 if __name__ == "__main__":

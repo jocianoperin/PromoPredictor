@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from src.data_processing.process_raw_data import create_db_connection, extract_raw_data, save_raw_data
 from src.data_processing.clean_data import process_clean_data
-from src.models.train_model import train_model
+from promopredictor.src.models.train_model_quantity import train_model
 from src.models.predict_model import predict
 from src.visualizations.generate_reports import generate_reports
 from src.utils.logging_config import get_logger
@@ -33,7 +33,7 @@ def main():
     os.makedirs(BASE_DATA_DIR / "predictions", exist_ok=True)
     os.makedirs(BASE_DATA_DIR / "reports", exist_ok=True)
 
-    # Etapa 1: Processamento de Dados
+    """# Etapa 1: Processamento de Dados
     connection = create_db_connection()
     if connection:
         try:
@@ -64,7 +64,7 @@ def main():
 
     # Etapa 3: Predição
     logger.info("Iniciando a geração de predições.")
-    predict()
+    predict()"""
 
     # Etapa 4: Geração de Relatórios
     logger.info("Gerando relatórios e gráficos.")

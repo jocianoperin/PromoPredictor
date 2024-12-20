@@ -14,7 +14,8 @@ def load_model():
     Retorna:
         tf.keras.Model: Modelo carregado.
     """
-    model_path = BASE_DATA_DIR / "models/structured_data_model"
+    model_path = BASE_DATA_DIR / "models/structured_data_model.keras"
+
     logger.info(f"Carregando o modelo de {model_path}.")
     return tf.keras.models.load_model(model_path)
 
