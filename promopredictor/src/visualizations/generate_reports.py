@@ -7,13 +7,14 @@ logger = get_logger(__name__)
 
 BASE_DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
-def generate_reports():
+def generate_reports(produto_id):
     """
     Gera gráficos comparando valores reais e previstos e salva como imagens.
-    Também calcula e registra indicadores de assertividade e erro no log.
+
+    Args:
+        produto_id (int): Código do produto.
     """
-    # Caminho do arquivo de predições
-    file_path = BASE_DATA_DIR / "predictions/produto_26173_predictions.csv"
+    file_path = BASE_DATA_DIR / "predictions" / f"produto_{produto_id}_predictions.csv"
     logger.info(f"Lendo dados de predições de {file_path}.")
     
     try:
@@ -37,7 +38,7 @@ def generate_reports():
     mae = df['Erro_Absoluto'].mean()  # Mean Absolute Error
     mape = df['Erro_Relativo'].mean()  # Mean Absolute Percentage Error
 
-    logger.info(f"Indicadores de erro calculados:")
+    logger.info(f"Indicadores de erro calculados para o produto {produto_id}:")
     logger.info(f"- MAE (Mean Absolute Error): {mae:.4f}")
     logger.info(f"- MAPE (Mean Absolute Percentage Error): {mape:.2f}%")
 
@@ -50,13 +51,13 @@ def generate_reports():
     plt.plot(df['Data'], df['Quantidade'], label='Quantidade Real', marker='o')
     plt.plot(df['Data'], df['Predicted_Quantidade'], label='Quantidade Predita', marker='x')
     plt.legend()
-    plt.title('Comparação de Valores Reais e Preditos')
+    plt.title(f'Comparação de Valores Reais e Preditos (Produto {produto_id})')
     plt.xlabel('Data')
     plt.ylabel('Quantidade')
     plt.grid(True)
 
     # Salvar gráfico
-    output_path = reports_dir / "comparison_chart.png"
+    output_path = reports_dir / f"comparison_chart_{produto_id}.png"
     plt.savefig(output_path)
     logger.info(f"Gráfico salvo em {output_path}.")
     

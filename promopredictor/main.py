@@ -1,76 +1,109 @@
-import os
-from pathlib import Path
-from src.data_processing.process_raw_data import create_db_connection, extract_raw_data, save_raw_data
+from src.services.database import DatabaseManager
+from src.data_processing.process_raw_data import extract_raw_data, save_raw_data
+from src.data_processing.price_data_pipeline import run_price_pipeline
 from src.data_processing.clean_data import process_clean_data
+from src.models.train_model_unit_price import train_model_unit_price
 from src.models.train_model_quantity import train_model
+from src.models.predict_model_unit_price import predict_price
 from src.models.predict_model_quantity import predict
+from src.visualizations.generate_reports_unit_price import generate_reports_unit_price
 from src.visualizations.generate_reports import generate_reports
 from src.utils.logging_config import get_logger
+import os
+from pathlib import Path
 
-# Configuração de logging
 logger = get_logger(__name__)
-
-# Definir o caminho base para os dados
 BASE_DATA_DIR = Path(__file__).parent / "data"
+
+def get_produtos_mais_vendidos(db_manager):
+    """
+    Obtém a lista de produtos mais vendidos do banco de dados.
+
+    Parâmetros:
+        db_manager (DatabaseManager): Gerenciador do banco de dados.
+
+    Retorna:
+        list: Lista de códigos de produtos mais vendidos.
+    """
+    query = "SELECT CodigoProduto FROM produtosmaisvendidos WHERE CodigoProduto = 26173"
+
+    try:
+        result = db_manager.execute_query(query)
+        produtos = [row[0] for row in result['data']]
+        logger.info(f"Produtos mais vendidos obtidos: {produtos}")
+        return produtos
+    except Exception as e:
+        logger.error(f"Erro ao obter produtos mais vendidos: {e}")
+        return []
 
 def main():
     """
-    Orquestra o pipeline completo:
-    1. Processa os dados (extração, limpeza e engenharia de recursos).
-    2. Treina o modelo usando os dados preparados.
-    3. Faz predições para o período especificado.
-    4. Gera relatórios e gráficos com os resultados.
+    Orquestra os pipelines de quantidade e valor unitário utilizando o DatabaseManager.
     """
-    logger.info("Iniciando o pipeline de processamento e análise.")
+    logger.info("Iniciando pipeline unificado.")
 
-    # Lista de códigos de produtos para processamento
-    produtos = [26173]  # Substitua por uma lista de produtos reais
-
-    # Criar diretórios base, se não existirem
+    # Criar diretórios necessários
     os.makedirs(BASE_DATA_DIR / "raw", exist_ok=True)
     os.makedirs(BASE_DATA_DIR / "cleaned", exist_ok=True)
     os.makedirs(BASE_DATA_DIR / "models", exist_ok=True)
     os.makedirs(BASE_DATA_DIR / "predictions", exist_ok=True)
     os.makedirs(BASE_DATA_DIR / "reports", exist_ok=True)
 
-    # Etapa 1: Processamento de Dados
-    connection = create_db_connection()
-    if connection:
-        try:
-            for produto in produtos:
-                logger.info(f"Processando o produto {produto}.")
+    db_manager = DatabaseManager()  # Instancia o DatabaseManager
 
-                # Extração de dados brutos
-                df_raw = extract_raw_data(connection, produto)
+    try:
+        # Obter a lista de produtos mais vendidos
+        produtos = get_produtos_mais_vendidos(db_manager)
+        if not produtos:
+            logger.warning("Nenhum produto encontrado na consulta de produtos mais vendidos.")
+            return
 
-                # Salvamento de dados brutos
-                if not df_raw.empty:
-                    save_raw_data(df_raw, produto, BASE_DATA_DIR / "raw")
-                else:
-                    logger.warning(f"Nenhum dado encontrado para o produto {produto}.")
-                    continue  # Pula para o próximo produto se não houver dados
+        for produto in produtos:
+            logger.info(f"Processando o produto {produto}.")
 
-                # Limpeza e engenharia de recursos
-                process_clean_data(produto, BASE_DATA_DIR)
-        finally:
-            connection.dispose()
-    else:
-        logger.error("Falha ao estabelecer conexão com o banco de dados.")
-        return
+            # Etapa 1: Extrair Dados Brutos
+            df_raw = extract_raw_data(db_manager, produto)
+            if df_raw.empty:
+                logger.warning(f"Nenhum dado encontrado para o produto {produto}.")
+                continue
+            save_raw_data(df_raw, produto, BASE_DATA_DIR / "raw")
 
-    # Etapa 2: Treinamento do Modelo
-    logger.info("Iniciando o treinamento do modelo.")
-    train_model()
+            # Etapa 2: Pipeline de preço
+            raw_file_path = BASE_DATA_DIR / "raw" / f"produto_{produto}.csv"
+            price_file_path = BASE_DATA_DIR / "cleaned" / f"produto_{produto}_price.csv"
+            logger.info(f"Rodando pipeline de preço para o produto {produto}.")
+            run_price_pipeline(raw_file_path, price_file_path)
 
-    # Etapa 3: Predição
-    logger.info("Iniciando a geração de predições.")
-    predict()
+            # Etapa 3: Pipeline de quantidade
+            logger.info(f"Rodando pipeline de quantidade para o produto {produto}.")
+            process_clean_data(produto, BASE_DATA_DIR)
 
-    # Etapa 4: Geração de Relatórios
-    logger.info("Gerando relatórios e gráficos.")
-    generate_reports()
+            # Etapa 4: Treinamento do modelo para preço
+            logger.info(f"Treinando modelo de preço para o produto {produto}.")
+            train_model_unit_price(produto, window_size=7)
 
-    logger.info("Pipeline completo concluído com sucesso.")
+            # Etapa 5: Treinamento do modelo para quantidade
+            logger.info(f"Treinando modelo de quantidade para o produto {produto}.")
+            train_model(produto, window_size=7)
+
+            # Etapa 6: Predição para preço
+            logger.info(f"Realizando predições de preço para o produto {produto}.")
+            predict_price(produto)
+
+            # Etapa 7: Predição para quantidade
+            logger.info(f"Realizando predições de quantidade para o produto {produto}.")
+            predict(produto)
+
+            # Etapa 8: Geração de Relatórios
+            logger.info(f"Gerando relatórios para o produto {produto}.")
+            generate_reports_unit_price(produto)
+            generate_reports(produto)
+
+        logger.info("Pipeline unificado concluído com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro durante o pipeline: {e}")
+    finally:
+        db_manager.engine.dispose()  # Fecha as conexões com o banco
 
 if __name__ == "__main__":
     main()

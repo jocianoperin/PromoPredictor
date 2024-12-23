@@ -8,11 +8,15 @@ logger = get_logger(__name__)
 
 BASE_DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
-def generate_reports_unit_price():
+def generate_reports_unit_price(produto_id):
     """
-    Gera relatório de ValorUnitarioMedio vs Predicted_ValorUnitario.
+    Gera relatório de ValorUnitarioMedio vs Predicted_ValorUnitario para um produto específico.
+
+    Args:
+        produto_id (int): Código do produto.
     """
-    file_path = BASE_DATA_DIR / "predictions" / "produto_26173_unit_price_predictions_v2.csv"
+
+    file_path = BASE_DATA_DIR / "predictions" / f"produto_{produto_id}_unit_price_predictions.csv"
     logger.info(f"Lendo dados de predições de valor unitário em {file_path}.")
 
     try:
@@ -51,14 +55,14 @@ def generate_reports_unit_price():
     logger.info(f"MAPE (ValorUnitario): {mape:.2f}%")
 
     # Plotar
-    plt.figure(figsize=(12,6))
+    plt.figure(figsize=(12, 6))
     plt.plot(df['Data'], df['ValorUnitarioMedio'], label='Real', marker='o')
     plt.plot(df['Data'], df['Predicted_ValorUnitario'], label='Previsto', marker='x')
-    plt.title('Comparação Valor Unitário Médio - Real vs Previsto')
+    plt.title(f'Comparação Valor Unitário Médio - Real vs Previsto (Produto {produto_id})')
     plt.legend()
     plt.grid(True)
 
-    output_path = BASE_DATA_DIR / "reports" / "comparison_chart_unit_price.png"
+    output_path = BASE_DATA_DIR / "reports" / f"comparison_chart_unit_price_{produto_id}.png"
     plt.savefig(output_path)
     plt.close()
 

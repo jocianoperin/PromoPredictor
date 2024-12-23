@@ -70,7 +70,7 @@ def feature_engineering(df):
     # Quantidade líquida
     if 'Quantidade' in df.columns and 'QuantDevolvida' in df.columns:
         df['QuantidadeLiquida'] = df['Quantidade'] - df['QuantDevolvida']
-        df['QuantidadeLiquida'].fillna(0, inplace=True)
+        df['QuantidadeLiquida'] = df['QuantidadeLiquida'].fillna(0)
 
     # Rentabilidade
     if 'ValorCusto' in df.columns and 'ValorUnitario' in df.columns:

@@ -1,34 +1,20 @@
-import pandas as pd
-from sqlalchemy import create_engine
+from src.services.database import DatabaseManager
 from src.utils.logging_config import get_logger
+import pandas as pd
+from pathlib import Path
 
 logger = get_logger(__name__)
 
-def create_db_connection():
-    """
-    Cria uma conexão com o banco de dados.
-
-    Retorna:
-        engine (sqlalchemy.engine.base.Engine): Objeto de conexão ao banco.
-    """
-    try:
-        engine = create_engine('mysql+mysqlconnector://root:123@localhost/ubialli')
-        logger.info("Conexão com o banco de dados estabelecida.")
-        return engine
-    except Exception as e:
-        logger.error(f"Erro ao conectar ao banco de dados: {e}")
-        return None
-
-def extract_raw_data(connection, produto_especifico):
+def extract_raw_data(db_manager: DatabaseManager, produto_especifico: int) -> pd.DataFrame:
     """
     Extrai dados brutos de vendas do banco de dados.
 
-    Parâmetros:
-        connection (sqlalchemy.engine.base.Engine): Objeto de conexão ao banco.
+    Args:
+        db_manager (DatabaseManager): Instância do gerenciador de banco de dados.
         produto_especifico (int): Código do produto a ser extraído.
 
-    Retorna:
-        pandas.DataFrame: Dados extraídos do banco de dados.
+    Returns:
+        pd.DataFrame: Dados extraídos do banco de dados.
     """
     query = """
     SELECT
@@ -40,27 +26,34 @@ def extract_raw_data(connection, produto_especifico):
         vp.ValorCustoGerencial, vp.CodigoFornecedor, vp.CodigoKitPrincipal, vp.ValorKitPrincipal
     FROM vendasprodutos vp
     INNER JOIN vendas v ON vp.CodigoVenda = v.Codigo
-    WHERE vp.CodigoProduto = %(produto_especifico)s AND v.Status IN ('f', 'x')
+    WHERE vp.CodigoProduto = :produto_especifico AND v.Status IN ('f', 'x')
     """
     try:
-        df = pd.read_sql(query, connection, params={'produto_especifico': produto_especifico})
-        logger.info(f"Dados do produto {produto_especifico} extraídos com sucesso.")
-        return df
+        # Executa a query usando o DatabaseManager
+        result = db_manager.execute_query(query, params={'produto_especifico': produto_especifico})
+        if result['data']:
+            df = pd.DataFrame(result['data'], columns=result['columns'])
+            logger.info(f"Dados do produto {produto_especifico} extraídos com sucesso.")
+            return df
+        else:
+            logger.warning(f"Nenhum dado encontrado para o produto {produto_especifico}.")
+            return pd.DataFrame()
     except Exception as e:
         logger.error(f"Erro ao extrair dados: {e}")
         return pd.DataFrame()
-    
-def save_raw_data(df, produto_especifico, output_dir):
+
+def save_raw_data(df: pd.DataFrame, produto_especifico: int, output_dir: Path):
     """
     Salva os dados brutos extraídos em um arquivo CSV.
 
-    Parâmetros:
-        df (pandas.DataFrame): Dados extraídos.
+    Args:
+        df (pd.DataFrame): Dados extraídos.
         produto_especifico (int): Código do produto.
         output_dir (Path): Caminho para salvar o arquivo.
     """
     file_path = output_dir / f'produto_{produto_especifico}.csv'
     try:
+        file_path.parent.mkdir(parents=True, exist_ok=True)  # Garantir que o diretório existe
         df.to_csv(file_path, index=False, sep=',')
         logger.info(f"Dados brutos salvos em {file_path}.")
     except Exception as e:
@@ -68,16 +61,18 @@ def save_raw_data(df, produto_especifico, output_dir):
 
 def main():
     produto_especifico = 26173
-    connection = create_db_connection()
+    output_dir = Path("data/raw")  # Defina o caminho correto para os arquivos de saída
+    db_manager = DatabaseManager()  # Inicializar o gerenciador de banco de dados
 
-    if connection:
-        df_raw = extract_raw_data(connection, produto_especifico)
-        connection.dispose()
+    try:
+        df_raw = extract_raw_data(db_manager, produto_especifico)
 
         if not df_raw.empty:
-            save_raw_data(df_raw, produto_especifico)
+            save_raw_data(df_raw, produto_especifico, output_dir)
         else:
             logger.warning("Nenhum dado foi extraído.")
+    finally:
+        db_manager.engine.dispose()  # Fecha a conexão com o banco de dados
 
 if __name__ == "__main__":
     main()
