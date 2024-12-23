@@ -33,7 +33,7 @@ def extract_raw_data(connection, produto_especifico):
     query = """
     SELECT
         vp.CodigoVenda, v.Data, v.Hora, v.Status, v.Cancelada AS VendaCancelada, 
-        v.TotalPedido, v.DescontoGeral, v.AcrescimoGeral, v.TotalCusto, vp.CodigoProduto,
+        v.TotalPedido, IFNULL(v.DescontoGeral, 0) as DescontoGeral, IFNULL(v.AcrescimoGeral, 0) as AcrescimoGeral, v.TotalCusto, vp.CodigoProduto,
         vp.Quantidade, vp.ValorUnitario, vp.ValorTotal, vp.Desconto, vp.Acrescimo, 
         vp.Cancelada AS ItemCancelado, IFNULL(vp.QuantDevolvida, 0) as QuantDevolvida, IFNULL(vp.PrecoemPromocao, 0) as PrecoemPromocao,
         vp.CodigoSecao, vp.CodigoGrupo, vp.CodigoSubGrupo, vp.CodigoFabricante, vp.ValorCusto, 

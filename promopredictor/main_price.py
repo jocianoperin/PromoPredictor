@@ -18,6 +18,7 @@ def main():
     logger.info("Iniciando pipeline de preço do produto %s", produto)
 
     # 1) Criar diretórios se necessário
+    os.makedirs(BASE_DATA_DIR / "raw", exist_ok=True)
     os.makedirs(DATA_DIR / "cleaned", exist_ok=True)
     os.makedirs(DATA_DIR / "models", exist_ok=True)
     os.makedirs(DATA_DIR / "predictions", exist_ok=True)

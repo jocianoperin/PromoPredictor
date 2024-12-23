@@ -78,6 +78,7 @@ def aggregate_daily(df: pd.DataFrame) -> pd.DataFrame:
         'DescontoGeral': 'mean',           # ou DescontoAplicado etc.
         'AcrescimoGeral': 'mean',
         'PrecoemPromocao': 'max',
+        'ValorCusto': 'mean',
     }).reset_index()
 
     # Renomear
@@ -87,7 +88,7 @@ def aggregate_daily(df: pd.DataFrame) -> pd.DataFrame:
     grouped['Data'] = pd.to_datetime(grouped['Data'])
     
     df_2024 = df[df['Data'].dt.year == 2024]
-    print("Linhas 2024 antes de agrupar:\n", df_2024[['Data', 'QuantidadeLiquida', 'ValorTotal']].head(50))
+    #print("Linhas 2024 antes de agrupar:\n", df_2024[['Data', 'QuantidadeLiquida', 'ValorTotal']].head(50))
 
     logger.info("Agregação diária concluída.")
     return grouped
@@ -110,6 +111,8 @@ def feature_engineering_for_price(df: pd.DataFrame) -> pd.DataFrame:
     # Assim você pode treinar a rede pra prever log em vez de valor bruto.
     df['LogValorUnitarioMedio'] = np.log1p(df['ValorUnitarioMedio'].replace(0, np.nan).abs())
 
+    df['ValorCusto'] = df['ValorCusto'].fillna(0)  # Preencher valores ausentes com 0
+
     logger.info("Engenharia de recursos para preço concluída.")
     return df
 
@@ -117,6 +120,9 @@ def save_price_dataset(df: pd.DataFrame, output_file: Path):
     """
     Salva o df final (diário, com features) para uso no modelo de valor unitário.
     """
+    if 'ValorCusto' not in df.columns:
+        logger.warning("A coluna 'ValorCusto' não está presente no dataset. Verifique o pipeline.")
+
     df.to_csv(output_file, index=False)
     logger.info(f"Dataset de valor unitário salvo em {output_file}")
 
@@ -127,12 +133,12 @@ def run_price_pipeline(raw_file_path: Path, output_file_path: Path):
     df = load_raw_data(raw_file_path)
     
     # >>>>>> AQUI você imprime ou loga o DataFrame (ou parte dele) <<<<<<
-    logger.info("### DUMP DE DADOS ANTES DO CLEANING ###")
+    #logger.info("### DUMP DE DADOS ANTES DO CLEANING ###")
     # Se for um DataFrame grande, imprima apenas as primeiras linhas
-    logger.info("\n" + df.head(50).to_string())  
+    #logger.info("\n" + df.head(50).to_string())  
     
     df_zeros = df[(df['Data'] >= '2019-01-01') & (df['Quantidade'] == 0)]
-    print("Linhas >= 2019 com Quantidade=0:\n", df_zeros[['Data','Quantidade','ValorTotal','VendaCancelada','ItemCancelado']].head(50))
+    #print("Linhas >= 2019 com Quantidade=0:\n", df_zeros[['Data','Quantidade','ValorTotal','VendaCancelada','ItemCancelado']].head(50))
 
     # Agora segue o pipeline normal
     df_clean = clean_data_for_price(df)
