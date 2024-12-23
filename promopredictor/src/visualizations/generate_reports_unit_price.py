@@ -58,7 +58,7 @@ def generate_reports_unit_price():
     plt.legend()
     plt.grid(True)
 
-    output_path = BASE_DATA_DIR / "reports" / "comparison_chart_unit_price_v2.png"
+    output_path = BASE_DATA_DIR / "reports" / "comparison_chart_unit_price.png"
     plt.savefig(output_path)
     plt.close()
 

@@ -1,3 +1,4 @@
+from workalendar.america import Brazil
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -76,7 +77,7 @@ def aggregate_daily(df: pd.DataFrame) -> pd.DataFrame:
         #'Rentabilidade': 'mean',           # se existir
         'DescontoGeral': 'mean',           # ou DescontoAplicado etc.
         'AcrescimoGeral': 'mean',
-        # e por aí vai...
+        'PrecoemPromocao': 'max',
     }).reset_index()
 
     # Renomear
@@ -84,6 +85,9 @@ def aggregate_daily(df: pd.DataFrame) -> pd.DataFrame:
 
     # Converte a 'Data' de volta pra datetime
     grouped['Data'] = pd.to_datetime(grouped['Data'])
+    
+    df_2024 = df[df['Data'].dt.year == 2024]
+    print("Linhas 2024 antes de agrupar:\n", df_2024[['Data', 'QuantidadeLiquida', 'ValorTotal']].head(50))
 
     logger.info("Agregação diária concluída.")
     return grouped
@@ -99,6 +103,8 @@ def feature_engineering_for_price(df: pd.DataFrame) -> pd.DataFrame:
     df['Dia'] = df['Data'].dt.day
     df['Mes'] = df['Data'].dt.month
     df['DiaDaSemana'] = df['Data'].dt.dayofweek
+
+    df = add_holiday_features(df)
 
     # (Opcional) Calcular algo como LogValorUnitarioMedio
     # Assim você pode treinar a rede pra prever log em vez de valor bruto.
@@ -116,10 +122,66 @@ def save_price_dataset(df: pd.DataFrame, output_file: Path):
 
 def run_price_pipeline(raw_file_path: Path, output_file_path: Path):
     """
-    Roda todo o fluxo: carrega dados brutos -> limpa -> agrega -> feature eng. -> salva CSV final.
+    Roda todo o fluxo: carrega dados brutos -> imprime pré-limpeza -> limpa -> agrega -> feature eng. -> salva CSV final.
     """
     df = load_raw_data(raw_file_path)
+    
+    # >>>>>> AQUI você imprime ou loga o DataFrame (ou parte dele) <<<<<<
+    logger.info("### DUMP DE DADOS ANTES DO CLEANING ###")
+    # Se for um DataFrame grande, imprima apenas as primeiras linhas
+    logger.info("\n" + df.head(50).to_string())  
+    
+    df_zeros = df[(df['Data'] >= '2019-01-01') & (df['Quantidade'] == 0)]
+    print("Linhas >= 2019 com Quantidade=0:\n", df_zeros[['Data','Quantidade','ValorTotal','VendaCancelada','ItemCancelado']].head(50))
+
+    # Agora segue o pipeline normal
     df_clean = clean_data_for_price(df)
     df_daily = aggregate_daily(df_clean)
     df_feats = feature_engineering_for_price(df_daily)
     save_price_dataset(df_feats, output_file_path)
+
+def add_holiday_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adiciona colunas indicando se o dia é feriado e se é véspera de feriado (1, 2 ou 3 dias antes).
+    """
+    cal = Brazil()  # Calendário do Brasil
+
+    # Se quiser focar só em feriados nacionais, use `Brazil()`.
+    # Se quiser feriados estaduais, existem classes específicas (ex. BrazilAcre, BrazilSaoPaulo, etc.)
+
+    # Converter 'Data' para datetime só pra garantir
+    df['Data'] = pd.to_datetime(df['Data'])
+
+    # Criar as colunas "is_holiday", "is_eve1", "is_eve2", "is_eve3"
+    df['is_holiday'] = df['Data'].apply(lambda d: 1 if cal.is_working_day(d) == False and cal.is_working_day(d + pd.Timedelta(1, 'D')) == True else 1 if d in cal.holidays(d.year) else 0)
+    # A linha acima é só um exemplo; se "is_working_day(d) == False" significa não é dia útil, mas no Brasil, véspera de feriado pode requerer lógica diferente.
+    # Melhor é simplesmente checkar "d in feriados_do_ano" e "d +1 in feriados_do_ano", etc.
+    # Vamos criar uma abordagem mais simples:
+
+    # 1) Obter todos os feriados para cada ano do DF
+    #     -> cal.holidays(year) retorna lista de tuplas (data, nome).
+    # 2) Criar um set de datas para lookup rápido.
+    
+    df_holidays = set()
+    for year in df['Data'].dt.year.unique():
+        feriados_ano = cal.holidays(year)
+        # feriados_ano é algo como [(datetime(2024, 1, 1), 'Confraternização Universal'), ...]
+        # Precisamos só da data
+        for (dt, nome) in feriados_ano:
+            df_holidays.add(dt)
+
+    # Agora sim, definimos a função que verifica se d está em df_holidays
+    def is_feriado(d):
+        return 1 if d in df_holidays else 0
+
+    df['is_holiday'] = df['Data'].apply(is_feriado)
+
+    # Para "véspera de feriado", checamos se d+1 ou d+2 ou d+3 está em df_holidays
+    def is_eve_of_holiday(d, delta):
+        return 1 if (d + pd.Timedelta(delta, unit='D')) in df_holidays else 0
+
+    df['is_eve1'] = df['Data'].apply(lambda d: is_eve_of_holiday(d, 1))
+    df['is_eve2'] = df['Data'].apply(lambda d: is_eve_of_holiday(d, 2))
+    df['is_eve3'] = df['Data'].apply(lambda d: is_eve_of_holiday(d, 3))
+
+    return df

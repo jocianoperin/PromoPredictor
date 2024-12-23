@@ -30,10 +30,15 @@ def prepare_features_and_target(df: pd.DataFrame, use_log: bool = True):
     Se use_log=True, então a coluna alvo é 'LogValorUnitarioMedio', senão 'ValorUnitarioMedio'.
     """
     features = [
+        'PrecoemPromocao',
         'DiaDaSemana',
         'Mes',
         'Dia',
         'QuantidadeLiquida',   # soma do dia
+        'is_holiday',
+        'is_eve1',
+        'is_eve2',
+        'is_eve3',
         # Adicionar outras colunas relevantes, ex: 'Rentabilidade', 'DescontoGeral', etc.
     ]
     if use_log:
@@ -63,14 +68,14 @@ def train_model_unit_price():
         inputs=input_node,
         outputs=output_node,
         max_trials=50,
-        overwrite=False,  # <-- força recriar o tuner do zero
+        overwrite=True,  # <-- força recriar o tuner do zero
         project_name="structured_data_model_unit_price"  # <-- nome distinto
     )
 
     model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=50,
+        epochs=100,
         batch_size=32
     )
 
@@ -80,7 +85,7 @@ def train_model_unit_price():
     logger.info(f"Resultados de validação (valor unitário, em log): {eval_results}")
 
     # Salvar
-    model_path = BASE_DATA_DIR / "models" / "structured_data_model_unit_price_v2"
+    model_path = BASE_DATA_DIR / "models" / "structured_data_model_unit_price"
     model.export_model().save(f"{model_path}.keras")
     logger.info(f"Modelo de valor unitário salvo em {model_path}.")
 

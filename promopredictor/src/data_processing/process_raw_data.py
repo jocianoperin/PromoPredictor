@@ -35,8 +35,8 @@ def extract_raw_data(connection, produto_especifico):
         vp.CodigoVenda, v.Data, v.Hora, v.Status, v.Cancelada AS VendaCancelada, 
         v.TotalPedido, v.DescontoGeral, v.AcrescimoGeral, v.TotalCusto, vp.CodigoProduto,
         vp.Quantidade, vp.ValorUnitario, vp.ValorTotal, vp.Desconto, vp.Acrescimo, 
-        vp.Cancelada AS ItemCancelado, vp.QuantDevolvida, vp.PrecoemPromocao, vp.CodigoSecao,
-        vp.CodigoGrupo, vp.CodigoSubGrupo, vp.CodigoFabricante, vp.ValorCusto, 
+        vp.Cancelada AS ItemCancelado, IFNULL(vp.QuantDevolvida, 0) as QuantDevolvida, IFNULL(vp.PrecoemPromocao, 0) as PrecoemPromocao,
+        vp.CodigoSecao, vp.CodigoGrupo, vp.CodigoSubGrupo, vp.CodigoFabricante, vp.ValorCusto, 
         vp.ValorCustoGerencial, vp.CodigoFornecedor, vp.CodigoKitPrincipal, vp.ValorKitPrincipal
     FROM vendasprodutos vp
     INNER JOIN vendas v ON vp.CodigoVenda = v.Codigo
