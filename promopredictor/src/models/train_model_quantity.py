@@ -1,7 +1,5 @@
 from autokeras import AutoModel, RegressionHead, Input
-import tensorflow as tf
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from pathlib import Path
 from src.utils.logging_config import get_logger
 

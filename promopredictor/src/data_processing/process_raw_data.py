@@ -1,9 +1,5 @@
-import os
 import pandas as pd
-import numpy as np
 from sqlalchemy import create_engine
-from workalendar.america import Brazil
-from datetime import timedelta
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)

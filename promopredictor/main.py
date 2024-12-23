@@ -1,11 +1,9 @@
 import os
-import pandas as pd
 from pathlib import Path
 from src.data_processing.process_raw_data import create_db_connection, extract_raw_data, save_raw_data
 from src.data_processing.clean_data import process_clean_data
-from src.models.train_model_quantity import train_model as train_model_quantity
-from src.models.train_model_unit_price import train_model as train_model_unit_price
-from src.models.predict_model import predict
+from src.models.train_model_quantity import train_model
+from src.models.predict_model_quantity import predict
 from src.visualizations.generate_reports import generate_reports
 from src.utils.logging_config import get_logger
 
@@ -15,38 +13,18 @@ logger = get_logger(__name__)
 # Definir o caminho base para os dados
 BASE_DATA_DIR = Path(__file__).parent / "data"
 
-def fetch_top_products(connection, limit=1):
-    """
-    Seleciona os produtos mais vendidos de categorias distintas.
-
-    Parâmetros:
-        connection: Conexão ativa com o banco de dados.
-        limit (int): Número máximo de produtos a selecionar.
-
-    Retorna:
-        list: Lista de códigos de produtos selecionados.
-    """
-    query = """
-    SELECT CodigoProduto
-    FROM produtosmaisvendidos
-    WHERE CodigoSecao IS NOT NULL
-    ORDER BY QuantidadeTotalVendida DESC
-    LIMIT %(limit)s
-    """
-    logger.info("Buscando os produtos mais vendidos no banco de dados.")
-    df = pd.read_sql(query, connection, params={"limit": limit})
-    return df["CodigoProduto"].tolist()
-
 def main():
     """
     Orquestra o pipeline completo:
-    1. Seleciona os produtos mais vendidos de categorias distintas.
-    2. Processa os dados (extração, limpeza e engenharia de recursos).
-    3. Treina os modelos usando os dados preparados.
-    4. Faz predições para o período especificado.
-    5. Gera relatórios e gráficos com os resultados.
+    1. Processa os dados (extração, limpeza e engenharia de recursos).
+    2. Treina o modelo usando os dados preparados.
+    3. Faz predições para o período especificado.
+    4. Gera relatórios e gráficos com os resultados.
     """
     logger.info("Iniciando o pipeline de processamento e análise.")
+
+    # Lista de códigos de produtos para processamento
+    produtos = [26173]  # Substitua por uma lista de produtos reais
 
     # Criar diretórios base, se não existirem
     os.makedirs(BASE_DATA_DIR / "raw", exist_ok=True)
@@ -55,22 +33,7 @@ def main():
     os.makedirs(BASE_DATA_DIR / "predictions", exist_ok=True)
     os.makedirs(BASE_DATA_DIR / "reports", exist_ok=True)
 
-    # Etapa 1: Seleção de Produtos
-    connection = create_db_connection()
-    if connection:
-        try:
-            produtos = fetch_top_products(connection, limit=1)
-        finally:
-            connection.dispose()
-    else:
-        logger.error("Falha ao estabelecer conexão com o banco de dados.")
-        return
-
-    if not produtos:
-        logger.error("Nenhum produto encontrado para processamento.")
-        return
-
-    # Etapa 2: Processamento de Dados
+    # Etapa 1: Processamento de Dados
     connection = create_db_connection()
     if connection:
         try:
@@ -84,7 +47,7 @@ def main():
                 if not df_raw.empty:
                     save_raw_data(df_raw, produto, BASE_DATA_DIR / "raw")
                 else:
-                    logger.warning(f"Não foram encontrados dados para o produto {produto}.")
+                    logger.warning(f"Nenhum dado encontrado para o produto {produto}.")
                     continue  # Pula para o próximo produto se não houver dados
 
                 # Limpeza e engenharia de recursos
@@ -95,20 +58,17 @@ def main():
         logger.error("Falha ao estabelecer conexão com o banco de dados.")
         return
 
-    # Etapa 3: Treinamento dos Modelos
-    logger.info("Iniciando o treinamento dos modelos.")
-    train_model_quantity()
-    train_model_unit_price()
+    # Etapa 2: Treinamento do Modelo
+    logger.info("Iniciando o treinamento do modelo.")
+    train_model()
 
-    # Etapa 4: Predição
+    # Etapa 3: Predição
     logger.info("Iniciando a geração de predições.")
-    predict('quantity')
-    predict('unit_price')
+    predict()
 
-    # Etapa 5: Geração de Relatórios
+    # Etapa 4: Geração de Relatórios
     logger.info("Gerando relatórios e gráficos.")
-    generate_reports('quantity')
-    generate_reports('unit_price')
+    generate_reports()
 
     logger.info("Pipeline completo concluído com sucesso.")
 
